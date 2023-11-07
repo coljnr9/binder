@@ -38,8 +38,10 @@ WORKDIR /app
 # Set any required env variables and
 ENV RUST_LOG="info"
 ENV APP_ENVIRONMENT="production"
+ENV LEPTOS_SITE_PKG_DIR="pkg"
 ENV LEPTOS_SITE_ADDR="0.0.0.0:80"
 ENV LEPTOS_SITE_ROOT="site"
+ENV PORT=80
 EXPOSE 80
 
 # Run the server
