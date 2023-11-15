@@ -1,21 +1,6 @@
-[package]
-name = "binder-csr"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-console_log = "1.0.0"
-leptonic = "0.3.0"
-leptos = { version = "0.5.2", features = ["csr"] }
-leptos_icons = { version = "0.1.0", features = ["BsList"] }
-leptos_router = { version = "0.5.2", features = ["csr"] }
-log = "0.4.20"
-reqwasm = "0.5.0"
-serde = { version = "1.0.192", features = ["derive"] }
-thiserror = "1.0.50"
-
-[build-dependencies]
-leptonic-theme = "0.3.0"
-leptos-tiptap-build = "0.2.4"
+members = [
+    "binder-csr",
+    "binder-lambdas"
+]
