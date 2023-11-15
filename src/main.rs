@@ -36,19 +36,19 @@ pub fn App() -> impl IntoView {
     view! {
         <Root default_theme=LeptonicTheme::default()>
             <Router>
-                <nav>
-                </nav>
-                <main>
-                </main>
+                <nav></nav>
+                <main></main>
             </Router>
 
             <Routes>
-                <Route path="/" view=Layout/>
-                <Route path="faq" view=Faq/>
+                <Route path="" view=Layout>
+                    <Route path="" view=|| view! { <Queue/> }/>
+                    <Route path="faq" view=|| view! { <Faq/> }/>
+                </Route>
             </Routes>
-            // <Box id="app">
-                // <Layout/>
-            // </Box>
+        // <Box id="app">
+        // <Layout/>
+        // </Box>
         </Root>
     }
 }
@@ -56,14 +56,18 @@ pub fn App() -> impl IntoView {
 #[component]
 pub fn Faq() -> impl IntoView {
     view! {
-
-
         <H1>FAQ</H1>
-        <A href="https://vlad.roam.garden/How-do-I-read-things-on-the-internet">Workflow Inspiration</A>
+        <a href="https://vlad.roam.garden/How-do-I-read-things-on-the-internet">
+            Workflow Inspiration
+        </a>
         <ol>
             <li>"Ingest: Save something to this page!"</li>
-            <li>"Skim: When looking for light reading ('podcast mode'), listen to the article at the top of the list using TTS"</li>
-            <li>"[unclear] Study: At a dedicated time, read something 'recommended by Spaced Repetition'"</li>
+            <li>
+                "Skim: When looking for light reading ('podcast mode'), listen to the article at the top of the list using TTS"
+            </li>
+            <li>
+                "[unclear] Study: At a dedicated time, read something 'recommended by Spaced Repetition'"
+            </li>
             <li>"[optional] Record: Keep notes and highlights in some digital world, somehow."</li>
         </ol>
 
@@ -77,8 +81,16 @@ pub fn Faq() -> impl IntoView {
             </ol>
         </ul>
 
-        <p>So I guess my record could look like
-        <p>"id, Title, State, Summary, FullTextLink(s3), AudioLink(s3), Original link, Archive link"</p>
+        <p>
+            So I guess my record could look like
+            <p>
+                "id, Title, State, Summary, FullTextLink(s3), AudioLink(s3), Original link, Archive link"
+            </p>
+        </p>
+        <p>
+            <a href="https://aws.amazon.com/getting-started/hands-on/build-serverless-web-app-lambda-apigateway-s3-dynamodb-cognito/">
+                Serverless AWS site
+            </a>
         </p>
     }
 }
@@ -96,15 +108,8 @@ pub fn Layout() -> impl IntoView {
         <LayoutAppBar/>
         <LibraryDrawer/>
 
-        <Box id="content">
-            <div style="display: flex; justify-content: center">
-                <H3>Content</H3>
-            </div>
-            <Stack spacing=Size::Em(
-                0.5,
-            )>{(0..50).map(|_| view! { <Skeleton height=Size::Em(35.0)/> }).collect_view()}</Stack>
-
-        </Box>
+        // Whatever page needs to be rendered
+        <Outlet/>
     }
 }
 
@@ -128,6 +133,22 @@ pub fn LayoutAppBar() -> impl IntoView {
     }
 }
 
+//  The main feed of articles to read/listen to
+#[component]
+pub fn Queue() -> impl IntoView {
+    view! {
+        <Box id="queue">
+            <div style="display: flex; justify-content: center">
+                <H3>Queue</H3>
+            </div>
+            <Stack spacing=Size::Em(
+                0.5,
+            )>{(0..50).map(|_| view! { <Skeleton height=Size::Em(35.0)/> }).collect_view()}</Stack>
+
+        </Box>
+    }
+}
+
 #[component]
 pub fn LibraryDrawer() -> impl IntoView {
     let ctx = use_context::<AppLayoutContext>().unwrap();
@@ -144,7 +165,6 @@ pub fn LibraryDrawer() -> impl IntoView {
                     icon=BsIcon::BsList
                     on:click=move |_| ctx.toggle_library_drawer()
                 />
-                <H2>Menu</H2>
             </AppBar>
             <LibraryDrawerContent/>
         </Drawer>
@@ -179,17 +199,25 @@ pub fn LibraryDrawerContent() -> impl IntoView {
     view! {
         <Box id="library-drawer-content">
             <H3>Next Up</H3>
-            <ArticleDisplay article_name="Next Up Article".to_string() mp3_url="https://download.samplelib.com/mp3/sample-3s.mp3".to_string()/>
+            <ArticleDisplay
+                article_name="Next Up Article".to_string()
+                mp3_url="https://download.samplelib.com/mp3/sample-3s.mp3".to_string()
+            />
 
             <Collapsible>
                 <CollapsibleHeader slot>
                     <H3>Navigation</H3>
                 </CollapsibleHeader>
                 <CollapsibleBody class="my-body" slot>
-                    <Stack spacing=Size::Em(
-                        0.5,
-                    )>
-                        {(0..5).map(|_| view! { <Skeleton height=Size::Em(2.5)/> }).collect_view()}
+                    <Stack spacing=Size::Em(0.5)>
+                        <Skeleton>
+                            <A href="">
+                            <H3>Home</H3>
+                            </A>
+                        </Skeleton>
+                        <Skeleton>
+                            <A href="faq"><H3>FAQ</H3></A>
+                        </Skeleton>
                     </Stack>
                 </CollapsibleBody>
             </Collapsible>
@@ -202,8 +230,17 @@ pub fn LibraryDrawerContent() -> impl IntoView {
                     <Stack spacing=Size::Em(
                         0.5,
                     )>
-                        {(0..15).map(|n| view! { <ArticleDisplay article_name=format!("Article {}", n) mp3_url="https://download.samplelib.com/mp3/sample-3s.mp3".to_string()/>
-                                               }).collect_view()}
+                        {(0..15)
+                            .map(|n| {
+                                view! {
+                                    <ArticleDisplay
+                                        article_name=format!("Article {}", n)
+                                        mp3_url="https://download.samplelib.com/mp3/sample-3s.mp3"
+                                            .to_string()
+                                    />
+                                }
+                            })
+                            .collect_view()}
                     </Stack>
                 </CollapsibleBody>
             </Collapsible>
