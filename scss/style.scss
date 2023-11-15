@@ -1,0 +1,78 @@
+body {
+    margin: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+@import "../generated/leptonic/leptonic-themes";
+
+#app {
+    display: flex;
+    flex-direction: row;
+    width: auto;
+    height: 100%;
+    justify-content: center;
+}
+
+
+#app #content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+
+    top: 4.5em;
+
+
+    width: 100%;
+    overflow-y: scroll;
+}
+
+.library-icon {
+    font-size: 2em;
+}
+
+
+#library-drawer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    top: 0; 
+
+    margin: 0;
+    padding: 0;
+
+    width: auto;
+    min-width: auto;
+    max-width: 80%;
+}
+
+#library-drawer #library-drawer-app-bar {
+    position: absolute;
+    height: 4.5em;
+    width: 100%;
+    margin: 0;
+    padding: 1em;
+    padding-right: 5em;
+}
+
+#library-drawer #library-drawer-content {
+    position: relative;
+    top: 4.5em;
+    overflow-y: scroll;
+}
+
+#app-bar {
+    position: fixed;
+    z-index: 1;
+    width: 100%;
+    padding: 1em;
+}
+
+
+
+
+
+
+
+
