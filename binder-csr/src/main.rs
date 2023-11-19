@@ -20,7 +20,7 @@ impl AppLayoutContext {
     }
 
     pub fn toggle_library_drawer(&self) {
-        console_log("Toggling library drawer");
+        console_log("Toggling drawer");
         let currently_closed = self.library_drawer_closed.get_untracked();
         console_log(&format!("currently_closed={}", currently_closed));
         self.set_library_drawer_closed.set(!currently_closed);
@@ -46,8 +46,6 @@ pub fn App() -> impl IntoView {
                     <Route path="faq" view=|| view! { <Faq/> }/>
                 </Route>
             </Routes>
-        // <Box id="app">
-        // <Layout/>
         // </Box>
         </Root>
     }
@@ -171,8 +169,26 @@ pub fn LibraryDrawer() -> impl IntoView {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Article {
+    name: String,
+    author: String,
+    date: String,
+
+    source_url: String,
+
+    // Populated once ChatGPT has time to summarize stuff
+    summary: Option<String>,
+    // Populated when
+    fulltext_uri: Option<String>,
+    // Populated once an IA snapshot is triggered
+    archive_url: Option<String>,
+    // Populated once Amazon Polly pushes an MP3 to S3
+    mp3_url: Option<String>,
+}
+
 #[component]
-pub fn ArticleDisplay(article_name: String, mp3_url: String) -> impl IntoView {
+pub fn ArticleDisplay(article: Article) -> impl IntoView {
     view! {
 
        <script
@@ -181,13 +197,15 @@ pub fn ArticleDisplay(article_name: String, mp3_url: String) -> impl IntoView {
           src="https://embed.type3.audio/player.js"
         />
 
+        <H3>"Article Name Biatch"</H3>
+
         <type-3-player
-          mp3-url={mp3_url}
-          author="Nick Bostrom"
-          title="Base Camp for Mount Ethics"
+          mp3-url="www.google.com"
+          author="Author"
+          title="Title"
           cover-image-url="https://radiobostrom.com/images/cover-art-radio-bostrom-500x500.jpeg"
           listen-to-this-page="true"
-          listen-to-this-page-text={article_name}
+          listen-to-this-page-text="Listen to Article"
         />
     }
 }
@@ -196,12 +214,23 @@ pub fn ArticleDisplay(article_name: String, mp3_url: String) -> impl IntoView {
 pub fn LibraryDrawerContent() -> impl IntoView {
     let ctx = use_context::<AppLayoutContext>().unwrap();
 
+    let article = Article {
+        name: "Test Article".to_string(),
+        author: "Cole Rogers".to_string(),
+        date: "1/1/1970".to_string(),
+        source_url: "cole.plus".to_string(),
+        summary: None,
+        fulltext_uri: None,
+        archive_url: None,
+        mp3_url: None,
+    };
+
     view! {
         <Box id="library-drawer-content">
             <H3>Next Up</H3>
             <ArticleDisplay
-                article_name="Next Up Article".to_string()
-                mp3_url="https://download.samplelib.com/mp3/sample-3s.mp3".to_string()
+            article=article.clone()
+
             />
 
             <Collapsible>
@@ -233,10 +262,7 @@ pub fn LibraryDrawerContent() -> impl IntoView {
                         {(0..15)
                             .map(|n| {
                                 view! {
-                                    <ArticleDisplay
-                                        article_name=format!("Article {}", n)
-                                        mp3_url="https://download.samplelib.com/mp3/sample-3s.mp3"
-                                            .to_string()
+                                    <ArticleDisplay article=article.clone()
                                     />
                                 }
                             })

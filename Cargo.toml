@@ -2,5 +2,5 @@
 
 members = [
     "binder-csr",
-    "binder-lambdas"
+    "binder-lambdas/put-article-in-db"
 ]
