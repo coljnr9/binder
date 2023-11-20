@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use url::Url;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ArticleRecord {
-    pub uild: Ulid,
+    pub uild: String,
 
-    pub source_url: Url,
+    pub source_url: String,
     pub archive_url: Option<String>,
 
     pub summary: Option<String>,

@@ -27,5 +27,6 @@ aws-sdk-dynamodb  = "0.38.0"
 aws-types = "0.101.0"
 aws-config = "0.101.0"
 serde = {version = "1.0.192", features = ["derive"]}
+serde_json = "1.0.108"
 
 types = { path = "../../types" }

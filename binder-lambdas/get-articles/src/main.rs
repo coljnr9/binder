@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use types::ArticleRecord;
 
 #[derive(Deserialize)]
-struct Request {
-    command: String,
-}
+struct Request {}
 
 #[derive(Serialize)]
 struct Response {
@@ -31,9 +29,8 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, Error> {
-    let command = event.payload.command;
-
+pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<ArticleRecord>, Error> {
+    println!("Getting articles");
     let config = aws_config::load_defaults(BehaviorVersion::v2023_11_09()).await;
     let db_client = DynamoDbClient::new(&config);
 
@@ -50,13 +47,21 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, 
         .collect()
         .await;
 
+    let mut resp = Vec::new();
+
     for item in items? {
-        println!(" {:?}", item);
+        println!("{:?}", item);
+        let article_record = ArticleRecord {
+            uild: (*item.get("ulid").unwrap().as_s().unwrap()).clone(),
+            source_url: (*item.get("article_url").unwrap().as_s().unwrap()).clone(),
+            archive_url: Some("".to_string()),
+            summary: Some("".to_string()),
+            s3_archive_arn: Some("".to_string()),
+            s3_mp3_arn: Some("".to_string()),
+        };
+        resp.push(article_record);
     }
+    println!("{:?}", &resp);
     // return `Response` (it will be serialized to JSON automatically by the runtime)
-    let resp = Response {
-        req_id: event.context.request_id,
-        msg: "Test".to_string(),
-    };
     Ok(resp)
 }
