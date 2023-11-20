@@ -14,7 +14,11 @@ leptos_router = { version = "0.5.2", features = ["csr"] }
 log = "0.4.20"
 reqwasm = "0.5.0"
 serde = { version = "1.0.192", features = ["derive"] }
+serde_json = "*"
 thiserror = "1.0.50"
+types = { path = "../types"}
+url = "2.4.1"
+
 
 [build-dependencies]
 leptonic-theme = "0.3.0"

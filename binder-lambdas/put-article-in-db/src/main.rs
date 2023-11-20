@@ -1,37 +1,54 @@
-use lambda_http::{run, service_fn, Body, Error, Request, RequestExt, Response};
+use aws_config::BehaviorVersion;
+use aws_sdk_dynamodb::{
+    error::DisplayErrorContext, types::AttributeValue, Client as DynamoDbClient,
+};
 
 use article_scraper::Readability;
-use reqwest::Client;
+use lambda_runtime::{service_fn, Error, LambdaEvent};
+use reqwest::Client as ReqClient;
 use url::Url;
 
-/// This is the main body for the function.
-/// Write your code inside it.
-/// There are some code example in the following URLs:
-/// - https://github.com/awslabs/aws-lambda-rust-runtime/tree/main/examples
-async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
-    // Extract some useful information from the request
-    let who = event
-        .query_string_parameters_ref()
-        .and_then(|params| params.first("name"))
-        .unwrap_or("world");
-    let message = format!("Hello {who}, this is an AWS Lambda HTTP request");
+use types::{ArticleLambdaRequest, ArticleLambdaResponse, ArticleRecord};
+use ulid::Ulid;
 
-    let url = Url::parse(
-        "https://www.nytimes.com/interactive/2023/04/21/science/parrots-video-chat-facetime.html",
-    )?;
-    let client = Client::new();
-    let html = client.get(url).send().await?.text().await?;
-    let base_url = Url::parse("https://nytimes.com")?;
-    let extracted_content = Readability::extract(&html, Some(base_url)).await?;
-    println!("{}", extracted_content);
+async fn function_handler(
+    event: LambdaEvent<ArticleLambdaRequest>,
+) -> Result<ArticleLambdaResponse, Error> {
+    let ArticleLambdaRequest { article_url } = event.payload;
 
-    // Return something that implements IntoResponse.
-    // It will be serialized to the right response event automatically by the runtime
-    let resp = Response::builder()
-        .status(200)
-        .header("content-type", "text/html")
-        .body(message.into())
-        .map_err(Box::new)?;
+    let article_url = Url::parse(&article_url)?;
+    let client = ReqClient::new();
+    // let html = client.get(article_url.clone()).send().await?.text().await?;
+
+    // Create article struct
+    let article = ArticleRecord {
+        uild: Ulid::new(),
+        source_url: article_url.clone(),
+        archive_url: None,
+        summary: None,
+        s3_archive_arn: None,
+        s3_mp3_arn: None,
+    };
+
+    let config = aws_config::load_defaults(BehaviorVersion::v2023_11_09()).await;
+
+    let db_client = DynamoDbClient::new(&config);
+    let db_storage_result = db_client
+        .put_item()
+        .table_name("BinderArticles")
+        .item("ulid", AttributeValue::S(article.uild.to_string()))
+        .item(
+            "article_url",
+            AttributeValue::S(article.source_url.to_string()),
+        )
+        .send()
+        .await;
+
+    println!("Storage result -> {:?}", db_storage_result);
+    let message = format!("Successfully stored {article_url} into DB");
+
+    let resp = ArticleLambdaResponse { message };
+
     Ok(resp)
 }
 
@@ -45,5 +62,5 @@ async fn main() -> Result<(), Error> {
         .without_time()
         .init();
 
-    run(service_fn(function_handler)).await
+    lambda_runtime::run(service_fn(function_handler)).await
 }

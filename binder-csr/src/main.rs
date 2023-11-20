@@ -1,7 +1,15 @@
 use leptonic::prelude::*;
-use leptos::{error::Result, leptos_dom::logging::console_log, *};
+use leptos::{
+    error::Result,
+    html::{div, A},
+    leptos_dom::logging::console_log,
+    *,
+};
 use leptos_icons::BsIcon;
 use leptos_router::*;
+use types::{ArticleLambdaRequest, ArticleRecord};
+
+use url::Url;
 
 fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
@@ -12,6 +20,7 @@ fn main() {
 pub struct AppLayoutContext {
     pub library_drawer_closed: Signal<bool>,
     set_library_drawer_closed: WriteSignal<bool>,
+    pub set_alert_display: WriteSignal<AlertDisplay>,
 }
 
 impl AppLayoutContext {
@@ -46,7 +55,6 @@ pub fn App() -> impl IntoView {
                     <Route path="faq" view=|| view! { <Faq/> }/>
                 </Route>
             </Routes>
-        // </Box>
         </Root>
     }
 }
@@ -92,17 +100,91 @@ pub fn Faq() -> impl IntoView {
         </p>
     }
 }
+
+#[derive(Clone)]
+pub struct AlertDisplay {
+    pub shown: bool,
+    pub variant: AlertVariant,
+    pub title: String,
+    pub text: String,
+}
+
+#[component]
+pub fn BinderAlert(
+    #[prop(into)] alert_display: ReadSignal<AlertDisplay>,
+
+    #[prop(into, optional)] id: Option<AttributeValue>,
+    #[prop(into, optional)] class: Option<AttributeValue>,
+    #[prop(into, optional)] style: Option<AttributeValue>,
+) -> impl IntoView {
+    let shown = Signal::derive(move || alert_display.get().shown);
+    let variant = Signal::derive(move || alert_display.get().variant);
+    let title = move || alert_display.get().title;
+    let text = Signal::derive(move || alert_display.get().text);
+
+    let ctx = use_context::<AppLayoutContext>().unwrap();
+
+    // match variant.get() {
+    //     AlertVariant::Success =>
+    //     AlertVariant::Info =>
+    //     AlertVariant::Warn =>
+    //     AlertVariant::Danger =>
+    // };
+
+    let style = move || {
+        if shown.get() {
+            ""
+        } else {
+            "display: none;"
+        }
+    };
+
+    view! {
+        <div
+            id=id
+            class=class
+            style=style
+            on:click=move |_| {
+                let default_alert = AlertDisplay {
+                    shown: false,
+                    variant: AlertVariant::Info,
+                    title: "".to_owned(),
+                    text: "".to_owned(),
+                };
+                ctx.set_alert_display.set(default_alert);
+            }
+        >
+
+            <Alert variant=variant title=move|| {title}.into_view()>
+                {text}
+            </Alert>
+        </div>
+    }
+}
+
 #[component]
 pub fn Layout() -> impl IntoView {
+    let default_alert = AlertDisplay {
+        shown: false,
+        variant: AlertVariant::Info,
+        title: "".to_owned(),
+        text: "".to_owned(),
+    };
+
     let (library_drawer_closed, set_library_drawer_closed) = create_signal(true);
+    let (get_alert_display, set_alert_display) = create_signal(default_alert.clone());
+
     let ctx = AppLayoutContext {
         library_drawer_closed: library_drawer_closed.into(),
         set_library_drawer_closed,
+        set_alert_display,
     };
 
     provide_context(ctx);
 
     view! {
+        <BinderAlert alert_display=get_alert_display id="alert"/>
+
         <LayoutAppBar/>
         <LibraryDrawer/>
 
@@ -111,9 +193,67 @@ pub fn Layout() -> impl IntoView {
     }
 }
 
+enum UrlValidationResult {
+    Unreachable,
+    Empty,
+    Unparsable,
+    Ok(Url),
+}
+
+fn validate_article_url(url_string: &str) -> UrlValidationResult {
+    if url_string.is_empty() {
+        return UrlValidationResult::Empty;
+    };
+
+    let url = match Url::parse(url_string) {
+        Ok(u) => u,
+        Err(_) => return UrlValidationResult::Unparsable,
+    };
+
+    UrlValidationResult::Ok(url)
+}
+
+fn submit_article_handler(ctx: AppLayoutContext, article_url_string: String) {
+    let alert_display = match validate_article_url(&article_url_string) {
+        UrlValidationResult::Empty => AlertDisplay {
+            shown: true,
+            text: "Cannot process a blank URL".to_string(),
+            variant: AlertVariant::Warn,
+            title: "Warning".to_string(),
+        },
+
+        UrlValidationResult::Unparsable => AlertDisplay {
+            shown: true,
+            text: "Unable to parse URL".to_string(),
+            variant: AlertVariant::Warn,
+            title: "Warning".to_string(),
+        },
+        UrlValidationResult::Ok(url) => {
+            let save_article_action = create_action(|url: &Url| save_article(url.clone()));
+            save_article_action.dispatch(url);
+            AlertDisplay {
+                shown: true,
+                variant: AlertVariant::Success,
+                title: "Success".to_string(),
+                text: "Article stored successfully".to_string(),
+            }
+        }
+        _ => AlertDisplay {
+            shown: true,
+            variant: AlertVariant::Danger,
+            title: "Error".to_string(),
+            text: "Unhandled error storing article".to_string(),
+        },
+    };
+
+    ctx.set_alert_display.set(alert_display);
+}
+
 #[component]
 pub fn LayoutAppBar() -> impl IntoView {
     let ctx = use_context::<AppLayoutContext>().unwrap();
+
+    let (article_url, set_article_url) = create_signal("".to_owned());
 
     view! {
         <AppBar id="app-bar" height=Size::Em(4.5)>
@@ -124,7 +264,24 @@ pub fn LayoutAppBar() -> impl IntoView {
                 on:click=move |_| ctx.toggle_library_drawer()
             />
 
-            <H1>"Binder"</H1>
+            <Stack orientation=StackOrientation::Horizontal spacing=Size::Em(8.0)>
+                <H1>"Binder"</H1>
+                <Stack orientation=StackOrientation::Horizontal spacing=Size::Em(0.5)>
+                    <TextInput
+                        get=article_url
+                        set=set_article_url
+                        placeholder="Add a new article..."
+                    />
+                    <Button on_click=move |ev| {
+                        let article_url_string = article_url.get().to_string().clone();
+                        submit_article_handler(ctx, article_url_string);
+                        set_article_url.set("".to_string());
+                    }>
+
+                        "Add"
+                    </Button>
+                </Stack>
+            </Stack>
 
             <ThemeToggle off=LeptonicTheme::Light on=LeptonicTheme::Dark/>
         </AppBar>
@@ -141,7 +298,7 @@ pub fn Queue() -> impl IntoView {
             </div>
             <Stack spacing=Size::Em(
                 0.5,
-            )>{(0..50).map(|_| view! { <Skeleton height=Size::Em(35.0)/> }).collect_view()}</Stack>
+            )>{(0..5).map(|_| view! { <Skeleton height=Size::Em(35.0)/> }).collect_view()}</Stack>
 
         </Box>
     }
@@ -200,7 +357,7 @@ pub fn ArticleDisplay(article: Article) -> impl IntoView {
         <H3>"Article Name Biatch"</H3>
 
         <type-3-player
-          mp3-url="www.google.com"
+          mp3-url="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_1MB_MP3.mp3"
           author="Author"
           title="Title"
           cover-image-url="https://radiobostrom.com/images/cover-art-radio-bostrom-500x500.jpeg"
@@ -208,6 +365,22 @@ pub fn ArticleDisplay(article: Article) -> impl IntoView {
           listen-to-this-page-text="Listen to Article"
         />
     }
+}
+
+const NEW_ARTICLE_ENDPOINT: &'static str = "https://api.cole.plus/article";
+
+async fn save_article(article_url: Url) {
+    console_log(&format!("Saving {}", article_url));
+
+    let article_request = ArticleLambdaRequest {
+        article_url: article_url.to_string(),
+    };
+
+    let mut request = reqwasm::http::Request::post(NEW_ARTICLE_ENDPOINT)
+        .body(serde_json::to_string(&article_request).unwrap())
+        .send()
+        .await
+        .unwrap();
 }
 
 #[component]
@@ -228,10 +401,7 @@ pub fn LibraryDrawerContent() -> impl IntoView {
     view! {
         <Box id="library-drawer-content">
             <H3>Next Up</H3>
-            <ArticleDisplay
-            article=article.clone()
-
-            />
+            <ArticleDisplay article=article.clone()/>
 
             <Collapsible>
                 <CollapsibleHeader slot>
@@ -241,11 +411,13 @@ pub fn LibraryDrawerContent() -> impl IntoView {
                     <Stack spacing=Size::Em(0.5)>
                         <Skeleton>
                             <A href="">
-                            <H3>Home</H3>
+                                <H3>Home</H3>
                             </A>
                         </Skeleton>
                         <Skeleton>
-                            <A href="faq"><H3>FAQ</H3></A>
+                            <A href="faq">
+                                <H3>FAQ</H3>
+                            </A>
                         </Skeleton>
                     </Stack>
                 </CollapsibleBody>
@@ -261,10 +433,7 @@ pub fn LibraryDrawerContent() -> impl IntoView {
                     )>
                         {(0..15)
                             .map(|n| {
-                                view! {
-                                    <ArticleDisplay article=article.clone()
-                                    />
-                                }
+                                view! { <ArticleDisplay article=article.clone()/> }
                             })
                             .collect_view()}
                     </Stack>

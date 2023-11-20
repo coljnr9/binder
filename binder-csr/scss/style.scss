@@ -15,12 +15,18 @@ body {
 }
 
 
-#app #content {
+#queue {
     position: relative;
     display: flex;
+    flex-direction: column;
 
     justify-content: center;
     top: 4.5em;
+    width: 80%;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
     overflow-y: scroll;
 }
 
@@ -66,6 +72,16 @@ body {
     padding: 1em;
 }
 
+#alert {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 4.5em;
+    margin-left: auto;
+    margin-right: auto;
+    z-index: 2;
+    width: 30%;
+}
 
 
 
