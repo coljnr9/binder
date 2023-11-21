@@ -2,12 +2,12 @@ use leptonic::prelude::*;
 use leptos::{
     error::Result,
     html::{div, A},
-    leptos_dom::logging::console_log,
+    leptos_dom::logging::{console_log, console_warn},
     *,
 };
 use leptos_icons::BsIcon;
 use leptos_router::*;
-use types::ArticleLambdaRequest;
+use types::{ArticleLambdaRequest, ArticleRecord};
 
 use url::Url;
 
@@ -155,7 +155,7 @@ pub fn BinderAlert(
             }
         >
 
-            <Alert variant=variant title=move|| {title}.into_view()>
+            <Alert variant=variant title=move || { title }.into_view()>
                 {text}
             </Alert>
         </div>
@@ -288,17 +288,57 @@ pub fn LayoutAppBar() -> impl IntoView {
     }
 }
 
+async fn get_articles() -> Vec<ArticleRecord> {
+    console_log("Getting articles");
+    let response = match reqwasm::http::Request::get("https://api.cole.plus/articles")
+        .send()
+        .await
+    {
+        Ok(response) => {
+            console_log("Got response.");
+            response
+        }
+        Err(e) => {
+            console_log(&format!("Error retrieving article data: {e}"));
+            panic!()
+        }
+    };
+    let articles: Vec<ArticleRecord> = match response.json().await {
+        Ok(articles) => articles,
+        Err(e) => {
+            console_log(&format!("Error deserializing articles: {e}"));
+            panic!();
+        }
+    };
+    console_log(&format!("Returning articles: {:#?}", articles));
+
+    articles
+}
+
 //  The main feed of articles to read/listen to
 #[component]
 pub fn Queue() -> impl IntoView {
+    let articles = create_resource(|| (), |_| async move { get_articles().await });
     view! {
         <Box id="queue">
             <div style="display: flex; justify-content: center">
                 <H3>Queue</H3>
             </div>
+
             <Stack spacing=Size::Em(
                 0.5,
-            )>{(0..5).map(|_| view! { <Skeleton height=Size::Em(35.0)/> }).collect_view()}</Stack>
+            )>
+                {move || match articles.get() {
+                    Some(articles) => {
+                        articles
+                            .into_iter()
+                            .map(|a| view! { <ArticleDisplay article=a/> })
+                            .collect_view()
+                    }
+                    None => view! { <p>"Loading..."</p> }.into_view(),
+                }}
+
+            </Stack>
 
         </Box>
     }
@@ -345,25 +385,31 @@ pub struct Article {
 }
 
 #[component]
-pub fn ArticleDisplay(article: Article) -> impl IntoView {
+pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
+    let ArticleRecord {
+        uild,
+        title,
+        author,
+        source_url,
+        archive_url,
+        summary,
+        s3_archive_arn,
+        s3_mp3_arn,
+    } = article;
+
     view! {
+        <Collapsible>
 
-       <script
-          type="module"
-          crossorigin
-          src="https://embed.type3.audio/player.js"
-        />
+            <CollapsibleHeader slot>
+            <Stack spacing=Size::Auto>
+                <H3>{title}</H3>
+                <p>{author}</p>
+                </Stack>
+            </CollapsibleHeader>
 
-        <H3>"Article Name Biatch"</H3>
+            <CollapsibleBody slot><a href={source_url} rel="external">Source Url</a></CollapsibleBody>
 
-        <type-3-player
-          mp3-url="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_1MB_MP3.mp3"
-          author="Author"
-          title="Title"
-          cover-image-url="https://radiobostrom.com/images/cover-art-radio-bostrom-500x500.jpeg"
-          listen-to-this-page="true"
-          listen-to-this-page-text="Listen to Article"
-        />
+        </Collapsible>
     }
 }
 
@@ -387,15 +433,15 @@ async fn save_article(article_url: Url) {
 pub fn LibraryDrawerContent() -> impl IntoView {
     let ctx = use_context::<AppLayoutContext>().unwrap();
 
-    let article = Article {
-        name: "Test Article".to_string(),
+    let article = ArticleRecord {
+        title: "Test Article".to_string(),
         author: "Cole Rogers".to_string(),
-        date: "1/1/1970".to_string(),
         source_url: "cole.plus".to_string(),
         summary: None,
-        fulltext_uri: None,
         archive_url: None,
-        mp3_url: None,
+        uild: "1".to_string(),
+        s3_archive_arn: None,
+        s3_mp3_arn: None,
     };
 
     view! {
