@@ -7,7 +7,7 @@ use leptos::{
 };
 use leptos_icons::BsIcon;
 use leptos_router::*;
-use types::{ArticleLambdaRequest, ArticleRecord};
+use types::ArticleLambdaRequest;
 
 use url::Url;
 

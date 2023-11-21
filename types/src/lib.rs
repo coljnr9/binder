@@ -6,6 +6,8 @@ use url::Url;
 pub struct ArticleRecord {
     pub uild: String,
 
+    pub title: String,
+    pub author: String,
     pub source_url: String,
     pub archive_url: Option<String>,
 
