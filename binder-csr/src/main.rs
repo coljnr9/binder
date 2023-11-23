@@ -322,7 +322,7 @@ pub fn Queue() -> impl IntoView {
     view! {
         <Box id="queue">
             <div style="display: flex; justify-content: center">
-                <H3>Queue</H3>
+                <H2>Queue</H2>
             </div>
 
             <Stack spacing=Size::Em(
@@ -387,11 +387,12 @@ pub struct Article {
 #[component]
 pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
     let ArticleRecord {
-        uild,
+        ulid,
         title,
         author,
         source_url,
         archive_url,
+        ingest_date,
         summary,
         s3_archive_arn,
         s3_mp3_arn,
@@ -400,10 +401,10 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
     view! {
         <Collapsible>
 
-            <CollapsibleHeader slot>
-            <Stack spacing=Size::Auto>
+            <CollapsibleHeader  slot>
+            <Stack id="article-title-header" spacing=Size::Em(0.0)>
                 <H3>{title}</H3>
-                <p>{author}</p>
+                <div>{author}</div>
                 </Stack>
             </CollapsibleHeader>
 
@@ -439,7 +440,8 @@ pub fn LibraryDrawerContent() -> impl IntoView {
         source_url: "cole.plus".to_string(),
         summary: None,
         archive_url: None,
-        uild: "1".to_string(),
+        ingest_date: None,
+        ulid: "1".to_string(),
         s3_archive_arn: None,
         s3_mp3_arn: None,
     };

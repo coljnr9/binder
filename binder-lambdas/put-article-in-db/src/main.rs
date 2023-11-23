@@ -1,9 +1,13 @@
+use aws_config::meta::region::RegionProviderChain;
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::{
     error::DisplayErrorContext, types::AttributeValue, Client as DynamoDbClient,
 };
+use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::{config::Region, meta::PKG_VERSION, Client as S3Client, Error as S3Error};
+use aws_types::sdk_config::SdkConfig;
+use bytes::Bytes;
 
-use article_scraper::{ArticleScraper, Readability};
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use reqwest::Client as ReqClient;
 use url::Url;
@@ -15,11 +19,40 @@ use types::{
 use ulid::Ulid;
 
 const PARSE_ARTICLE: &'static str = "https://api.cole.plus/parse-article";
+const BINDER_CONTENT_BUCKET: &'static str = "binder-content";
+
+async fn upload_to_s3(
+    client: &S3Client,
+    bucket: &str,
+    key: &str,
+    data: &String,
+) -> Result<(), S3Error> {
+    info!("Upload to S3");
+    let test_content = ByteStream::from(data.clone().into_bytes());
+    let resp = client
+        .put_object()
+        .bucket(bucket)
+        .key(key)
+        .body(test_content)
+        .send()
+        .await?;
+
+    info!("Upload success (resp: {:#?} key = {})!", &resp, &key);
+
+    Ok(())
+}
 
 async fn function_handler(
     event: LambdaEvent<ArticleLambdaRequest>,
 ) -> Result<ArticleLambdaResponse, Error> {
     info!("Starting put-article-in-db lambda");
+    let ulid = Ulid::new().to_string();
+    let content_object_name = format!("{}-content", &ulid);
+    let content_s3_arn = format!("{}/{}", BINDER_CONTENT_BUCKET, &content_object_name);
+
+    let mp3_object_name = format!("{}-mp3", &ulid);
+    let mp3_s3_arn = format!("{}/{}", BINDER_CONTENT_BUCKET, &mp3_object_name);
+
     let ArticleLambdaRequest { article_url } = event.payload;
 
     let parsed_article_url = Url::parse(&article_url)?;
@@ -37,13 +70,10 @@ async fn function_handler(
         .send()
         .await?;
 
-    println!("parsing_response: {:#?}", parsing_response);
-
     let parsed_article: ParsedArticle = parsing_response.json().await?;
-
     // Create article struct
     let article_record = ArticleRecord {
-        uild: Ulid::new().to_string(),
+        ulid,
         title: parsed_article.title.unwrap_or("No title found".to_string()),
         author: parsed_article
             .byline
@@ -52,9 +82,28 @@ async fn function_handler(
         source_url: article_url.to_string(),
         archive_url: None,
         summary: None,
-        s3_archive_arn: None,
+        s3_archive_arn: Some(content_s3_arn),
         s3_mp3_arn: None,
     };
+
+    // Upload some of the text to S3
+    // let shared_config = aws_types::sdk_config::SdkConfig::builder()
+    //     .region(aws_types::region::Region::from_static("us-west-2"))
+    //     .build();
+    info!("Building s3 client");
+    let shared_config = aws_config::load_defaults(BehaviorVersion::v2023_11_09()).await;
+    let s3_client = S3Client::new(&shared_config);
+
+    info!("Got s3_client, starting upload");
+    upload_to_s3(
+        &s3_client,
+        &BINDER_CONTENT_BUCKET,
+        &content_object_name,
+        &parsed_article
+            .content
+            .unwrap_or("No parsed content".to_string()),
+    )
+    .await?;
 
     // TODO(coljnr9)
     // Add Summarization with ChatGPT or likewise
@@ -62,15 +111,22 @@ async fn function_handler(
     info!("ArticleRecord: {:#?}", article_record);
 
     let config = aws_config::load_defaults(BehaviorVersion::v2023_11_09()).await;
-
     let db_client = DynamoDbClient::new(&config);
     let db_storage_result = db_client
         .put_item()
         .table_name("BinderArticles")
-        .item("ulid", AttributeValue::S(article_record.uild))
+        .item("ulid", AttributeValue::S(article_record.ulid))
         .item("article_url", AttributeValue::S(article_record.source_url))
         .item("title", AttributeValue::S(article_record.title))
         .item("author", AttributeValue::S(article_record.author))
+        .item(
+            "s3_archive_arn",
+            AttributeValue::S(
+                article_record
+                    .s3_archive_arn
+                    .unwrap_or("No s3 archive".to_string()),
+            ),
+        )
         .send()
         .await;
 

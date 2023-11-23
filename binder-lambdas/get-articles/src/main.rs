@@ -50,11 +50,11 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
         .await;
 
     let mut resp = Vec::new();
-
+let content_s3_arn = *item.get("article_url").unwrap().as_s().unwrap().clone()
     for item in items? {
         println!("{:?}", item);
         let article_record = ArticleRecord {
-            uild: (*item.get("ulid").unwrap().as_s().unwrap()).clone(),
+            ulid: (*item.get("ulid").unwrap().as_s().unwrap()).clone(),
             source_url: (*item.get("article_url").unwrap().as_s().unwrap()).clone(),
             title: (*item
                 .get("title")
@@ -70,6 +70,7 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
                 .as_s()
                 .unwrap())
             .clone(),
+            ingest_date: Some("".to_string()),
             archive_url: Some("".to_string()),
             summary: Some("".to_string()),
             s3_archive_arn: Some("".to_string()),

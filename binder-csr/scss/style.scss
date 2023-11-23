@@ -20,6 +20,9 @@ body {
     height: 100%;
     justify-content: center;
 }
+#article-title-header {
+    align-items: unset;
+}
 
 
 #queue {
@@ -27,7 +30,6 @@ body {
     display: flex;
     flex-direction: column;
 
-    justify-content: center;
     top: 4.5em;
     width: 80%;
     left: 0;

@@ -5,7 +5,7 @@ use url::Url;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArticleRecord {
     #[serde(default)]
-    pub uild: String,
+    pub ulid: String,
 
     #[serde(default)]
     pub title: String,

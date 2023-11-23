@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 ulid = "1.1.0"
 url = "2.4.1"
-serde = { verison = "1.0.192", features = ["derive"]}
+serde = { version = "1.0.192", features = ["derive"]}
