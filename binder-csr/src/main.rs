@@ -398,6 +398,38 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         s3_mp3_arn,
     } = article;
 
+    // Maybe create a resource that loads...?
+    let article_content = create_resource(
+        move || s3_archive_arn.clone(),
+        |s3_archive_arn| async move {
+            match s3_archive_arn {
+                Some(arn) => {
+                    let arn = arn.split("/").last().unwrap();
+                    console_log(&format!("Fetching article fulltext for: {:?}", arn));
+
+                    let response = match reqwasm::http::Request::get(&format!(
+                        "https://api.cole.plus/article/{}",
+                        arn
+                    ))
+                    .send()
+                    .await
+                    {
+                        Ok(response) => {
+                            console_log("Got article S3 response.");
+                            response
+                        }
+                        Err(e) => {
+                            console_log(&format!("Error retrieving article data: {e}"));
+                            panic!()
+                        }
+                    };
+                    return response.text().await.expect("Could not get text form body");
+                }
+                None => "No archive".to_string(),
+            }
+        },
+    );
+
     view! {
         <Collapsible>
 
@@ -408,7 +440,20 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
                 </Stack>
             </CollapsibleHeader>
 
-            <CollapsibleBody slot><a href={source_url} rel="external">Source Url</a></CollapsibleBody>
+            <CollapsibleBody slot>
+
+            <a href={source_url} rel="external">Source Url</a>
+            {
+                let html_text = move || match article_content.get() {
+                    None => "Loading...".to_string(),
+                    Some(d) => d
+                };
+                view! {<div inner_html=html_text/>}
+            }
+
+
+
+            </CollapsibleBody>
 
         </Collapsible>
     }
