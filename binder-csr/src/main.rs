@@ -405,6 +405,9 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
             match s3_archive_arn {
                 Some(arn) => {
                     let arn = arn.split("/").last().unwrap();
+                    if arn.len() <= 3 {
+                        return "No archive".to_string();
+                    }
                     console_log(&format!("Fetching article fulltext for: {:?}", arn));
 
                     let response = match reqwasm::http::Request::get(&format!(
@@ -440,16 +443,20 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
                 </Stack>
             </CollapsibleHeader>
 
-            <CollapsibleBody slot>
+            <CollapsibleBody slot >
+
+            <Stack spacing=Size::Em(1.5)>
 
             <a href={source_url} rel="external">Source Url</a>
+
             {
                 let html_text = move || match article_content.get() {
                     None => "Loading...".to_string(),
                     Some(d) => d
                 };
-                view! {<div inner_html=html_text/>}
+                view! {<div style="overflow-x: auto; object-fit: cover;" inner_html=html_text/>}
             }
+        </Stack>
 
 
 
