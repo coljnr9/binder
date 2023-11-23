@@ -9,8 +9,12 @@ use reqwest::Client as ReqClient;
 use url::Url;
 
 use tracing::{info, warn};
-use types::{ArticleLambdaRequest, ArticleLambdaResponse, ArticleRecord};
+use types::{
+    ArticleLambdaRequest, ArticleLambdaResponse, ArticleRecord, ParseArticleBody, ParsedArticle,
+};
 use ulid::Ulid;
+
+const PARSE_ARTICLE: &'static str = "https://api.cole.plus/parse-article";
 
 async fn function_handler(
     event: LambdaEvent<ArticleLambdaRequest>,
@@ -18,23 +22,42 @@ async fn function_handler(
     info!("Starting put-article-in-db lambda");
     let ArticleLambdaRequest { article_url } = event.payload;
 
-    let article_url = Url::parse(&article_url)?;
+    let parsed_article_url = Url::parse(&article_url)?;
     let client = ReqClient::new();
 
-    let scraper = ArticleScraper::new(None).await;
-    let article = scraper.parse(&article_url, false, &client, None).await?;
+    let body = ParseArticleBody {
+        article_url: article_url.clone(),
+    };
+
+    println!("ParsedArticleBody: {:?}", &body);
+
+    let parsing_response = client
+        .post(Url::parse(PARSE_ARTICLE)?)
+        .json(&body)
+        .send()
+        .await?;
+
+    println!("parsing_response: {:#?}", parsing_response);
+
+    let parsed_article: ParsedArticle = parsing_response.json().await?;
 
     // Create article struct
     let article_record = ArticleRecord {
         uild: Ulid::new().to_string(),
-        title: article.title.unwrap_or("NO TITLE FOUND".to_string()),
-        author: article.author.unwrap_or("NO AUTHOR FOUND".to_string()),
+        title: parsed_article.title.unwrap_or("No title found".to_string()),
+        author: parsed_article
+            .byline
+            .unwrap_or("No author found".to_string()),
+        ingest_date: None,
         source_url: article_url.to_string(),
         archive_url: None,
         summary: None,
         s3_archive_arn: None,
         s3_mp3_arn: None,
     };
+
+    // TODO(coljnr9)
+    // Add Summarization with ChatGPT or likewise
 
     info!("ArticleRecord: {:#?}", article_record);
 

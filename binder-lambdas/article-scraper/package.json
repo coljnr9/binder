@@ -9,9 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@mozilla/readability": "^0.4.4",
     "@sparticuz/chromium": "^119.0.0",
-    "jsdom": "^22.1.0",
     "puppeteer-core": "21.5"
   }
 }
