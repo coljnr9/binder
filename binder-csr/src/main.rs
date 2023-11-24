@@ -450,7 +450,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
 
             <CollapsibleBody slot >
 
-            <Stack spacing=Size::Em(1.5)>
+            <Stack class="article-body" spacing=Size::Em(1.5)>
 
             <a href={source_url} rel="external">Source Url</a>
 
@@ -459,7 +459,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
                     None => "Loading...".to_string(),
                     Some(d) => d
                 };
-                view! {<div style="overflow-x: auto; object-fit: cover;" inner_html=html_text/>}
+                view! {<div inner_html=html_text/>}
             }
         </Stack>
 

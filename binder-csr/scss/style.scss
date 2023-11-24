@@ -9,7 +9,7 @@ html, body{
     flex-direction: column;
     margin: 0;
     height: 100%;
-    overflow-y: clip;
+    overflow: clip;
 }
 
 
@@ -39,6 +39,9 @@ html, body{
     margin-left: auto;
     margin-right: auto;
     overflow-y: scroll;
+    overflow-x: hidden;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 
@@ -140,6 +143,21 @@ html, body{
     align-content: flex-start;
 }
 
+.article-body {
+    max-width: 100%;
+    height: auto;
+    overflow-y: scroll;
+    overflow-x: clip;
+}
+
+.article-body div {
+    max-width: 100%;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
 #library-drawer #library-drawer-content {
     position: relative;
     top: 4.5em;
