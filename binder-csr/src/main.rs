@@ -13,7 +13,7 @@ use url::Url;
 
 fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
-    mount_to_body(|| view! { <App/> })
+    mount_to_body(|| view! { <App /> })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -186,10 +186,10 @@ pub fn Layout() -> impl IntoView {
         <BinderAlert alert_display=get_alert_display id="alert"/>
 
         <LayoutAppBar/>
+        <Outlet/>
         <LibraryDrawer/>
 
         // Whatever page needs to be rendered
-        <Outlet/>
     }
 }
 
@@ -256,7 +256,9 @@ pub fn LayoutAppBar() -> impl IntoView {
     let (article_url, set_article_url) = create_signal("".to_owned());
 
     view! {
-        <AppBar id="app-bar" height=Size::Em(4.5)>
+        <AppBar id="app-bar">
+         <div class="flex-layout">
+            <div class="binder-left">
             <Icon
                 id="library-trigger"
                 class="library-icon"
@@ -264,13 +266,15 @@ pub fn LayoutAppBar() -> impl IntoView {
                 on:click=move |_| ctx.toggle_library_drawer()
             />
 
-            <Stack orientation=StackOrientation::Horizontal spacing=Size::Em(8.0)>
-                <H1>"Binder"</H1>
-                <Stack orientation=StackOrientation::Horizontal spacing=Size::Em(0.5)>
+            <H1 style="margin: 0;">"Binder"</H1>
+            </div>
+
+            <div class="search" style="text-align: center; align-items: center; display: flex; flex-direction: row;">
                     <TextInput
                         get=article_url
                         set=set_article_url
                         placeholder="Add a new article..."
+                        style="width: 100%; padding: 10px;"
                     />
                     <Button on_click=move |ev| {
                         let article_url_string = article_url.get().to_string().clone();
@@ -280,10 +284,11 @@ pub fn LayoutAppBar() -> impl IntoView {
 
                         "Add"
                     </Button>
-                </Stack>
-            </Stack>
+            </div>
+            // </Stack>
 
-            <ThemeToggle off=LeptonicTheme::Light on=LeptonicTheme::Dark/>
+            // <ThemeToggle off=LeptonicTheme::Light on=LeptonicTheme::Dark/>
+        </div>
         </AppBar>
     }
 }
@@ -321,7 +326,7 @@ pub fn Queue() -> impl IntoView {
     let articles = create_resource(|| (), |_| async move { get_articles().await });
     view! {
         <Box id="queue">
-            <div style="display: flex; justify-content: center">
+            <div style="display: flex; flex-direction: row; justify-content: center">
                 <H2>Queue</H2>
             </div>
 

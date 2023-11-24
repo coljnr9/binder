@@ -1,25 +1,27 @@
-body {
-    margin: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
 @import "../generated/leptonic/leptonic-themes";
-html, body{
-    height: 100%;
+/* For mobile phones: */
+[class*="col-"] {
+  width: 100%;
 }
 
-body {
+html, body{
+    display: flex;
+    flex-direction: column;
     margin: 0;
+    height: 100%;
+    overflow-y: clip;
 }
+
 
 #app {
     display: flex;
     flex-direction: row;
     width: auto;
     height: 100%;
+    overflow-y: clip;
     justify-content: center;
 }
+
 #article-title-header {
     align-items: unset;
 }
@@ -30,17 +32,13 @@ body {
     display: flex;
     flex-direction: column;
 
-    top: 4.5em;
+    // top: 4.5em;
     width: 80%;
     left: 0;
     right: 0;
     margin-left: auto;
     margin-right: auto;
     overflow-y: scroll;
-}
-
-.library-icon {
-    font-size: 2em;
 }
 
 
@@ -53,15 +51,23 @@ body {
 
     margin: 0;
     padding: 0;
-
-    width: auto;
-    min-width: auto;
-    max-width: 40%;
+    min-width: 480px
 }
+
+@media only screen and (max-width: 479px) {
+    #queue {
+        width: 100%;
+    }
+
+    #library-drawer {
+        width: 100%;
+    }
+}
+
 
 #library-drawer #library-drawer-app-bar {
     position: absolute;
-    height: 4.5em;
+    height: auto;
     width: 100%;
     margin: 0;
     padding: 1em;
@@ -70,16 +76,76 @@ body {
 
 #library-drawer #library-drawer-content {
     position: relative;
-    top: 4.5em;
     overflow-y: scroll;
 }
 
 #app-bar {
-    position: fixed;
-    z-index: 1;
+    display: flex;
+    position: relative;
+    height: auto;
     width: 100%;
     padding: 1em;
+    overflow: unset;
 }
+    
+
+.flex-layout{
+    display: flex;
+    flex-direction: row;
+    justify-content: auto;
+    width: 100%;
+    height: auto;
+    text-align: center;
+    align-items: center;
+}
+
+.binder-left {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: left;
+    align-items: center;
+}
+
+.search {
+    width: 100%;
+}
+
+@media only screen and (max-width: 479px) {
+    .flex-layout{
+        display: flex;
+        flex-direction: column;
+    }
+    .search {
+        flex: 100%;
+        width: 100%;
+        max-width: unset;
+
+    }
+
+}
+
+#library-drawer #library-drawer-app-bar {
+    position: absolute;
+    // height: 4.5em;
+    width: 100%;
+    margin: 0;
+    padding: 1em;
+    padding-right: 5em;
+}
+
+.library-icon {
+    top: 50%;
+    font-size: 2em;
+    align-content: flex-start;
+}
+
+#library-drawer #library-drawer-content {
+    position: relative;
+    top: 4.5em;
+    overflow-y: scroll;
+}
+
 
 #alert {
     position: fixed;
