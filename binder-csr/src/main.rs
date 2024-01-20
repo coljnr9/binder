@@ -269,12 +269,12 @@ pub fn LayoutAppBar() -> impl IntoView {
             <H1 style="margin: 0;">"Binder"</H1>
             </div>
 
-            <div class="search" style="text-align: center; align-items: center; display: flex; flex-direction: row;">
+            <div class="search">
                     <TextInput
                         get=article_url
                         set=set_article_url
                         placeholder="Add a new article..."
-                        style="width: 100%; padding: 10px;"
+                        style="padding: 10px; width: 100%;"
                     />
                     <Button on_click=move |ev| {
                         let article_url_string = article_url.get().to_string().clone();
@@ -285,9 +285,8 @@ pub fn LayoutAppBar() -> impl IntoView {
                         "Add"
                     </Button>
             </div>
-            // </Stack>
 
-            // <ThemeToggle off=LeptonicTheme::Light on=LeptonicTheme::Dark/>
+            <ThemeToggle off=LeptonicTheme::Light on=LeptonicTheme::Dark/>
         </div>
         </AppBar>
     }
