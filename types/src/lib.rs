@@ -1,6 +1,15 @@
+use chrono::offset::Local;
+use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use url::Url;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ArticleStatus {
+    New,
+    Archive,
+    Repeat(DateTime<Local>),
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArticleRecord {
@@ -17,17 +26,18 @@ pub struct ArticleRecord {
     pub archive_url: Option<String>,
 
     #[serde(default)]
-    pub ingest_date: Option<String>,
+    pub ingest_date: Option<DateTime<Local>>,
 
     #[serde(default)]
     pub summary: Option<String>,
     #[serde(default)]
     pub s3_archive_arn: Option<String>,
     #[serde(default)]
-    pub s3_mp3_arn: Option<String>, // TODO
-                                    // next_repetition_date
-                                    // ingest_timestamp
-                                    // tags/metadata
+    pub s3_mp3_arn: Option<String>,
+
+    #[serde(default)]
+    pub status: Option<ArticleStatus>,
+    // TODO(coljnr9) Metadata/tags
 }
 
 #[derive(Serialize, Deserialize, Debug)]

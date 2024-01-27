@@ -8,13 +8,15 @@ use aws_sdk_s3::{config::Region, meta::PKG_VERSION, Client as S3Client, Error as
 use aws_types::sdk_config::SdkConfig;
 use bytes::Bytes;
 
+use chrono::{offset::Local, DateTime};
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use reqwest::Client as ReqClient;
 use url::Url;
 
 use tracing::{info, warn};
 use types::{
-    ArticleLambdaRequest, ArticleLambdaResponse, ArticleRecord, ParseArticleBody, ParsedArticle,
+    ArticleLambdaRequest, ArticleLambdaResponse, ArticleRecord, ArticleStatus, ParseArticleBody,
+    ParsedArticle,
 };
 use ulid::Ulid;
 
@@ -72,24 +74,24 @@ async fn function_handler(
 
     let parsed_article: ParsedArticle = parsing_response.json().await?;
     // Create article struct
+    let ingest_date = Local::now();
+    let article_status = ArticleStatus::New;
+
     let article_record = ArticleRecord {
         ulid,
         title: parsed_article.title.unwrap_or("No title found".to_string()),
         author: parsed_article
             .byline
             .unwrap_or("No author found".to_string()),
-        ingest_date: None,
         source_url: article_url.to_string(),
         archive_url: None,
         summary: None,
         s3_archive_arn: Some(content_s3_arn),
         s3_mp3_arn: None,
+        ingest_date: Some(ingest_date),
+        status: Some(article_status.clone()),
     };
 
-    // Upload some of the text to S3
-    // let shared_config = aws_types::sdk_config::SdkConfig::builder()
-    //     .region(aws_types::region::Region::from_static("us-west-2"))
-    //     .build();
     info!("Building s3 client");
     let shared_config = aws_config::load_defaults(BehaviorVersion::v2023_11_09()).await;
     let s3_client = S3Client::new(&shared_config);
@@ -119,6 +121,14 @@ async fn function_handler(
         .item("article_url", AttributeValue::S(article_record.source_url))
         .item("title", AttributeValue::S(article_record.title))
         .item("author", AttributeValue::S(article_record.author))
+        .item(
+            "ingest_date",
+            AttributeValue::S(serde_json::to_string(&ingest_date)?),
+        )
+        .item(
+            "status",
+            AttributeValue::S(serde_json::to_string(&article_status)?),
+        )
         .item(
             "s3_archive_arn",
             AttributeValue::S(

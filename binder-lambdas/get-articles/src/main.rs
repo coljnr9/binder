@@ -61,6 +61,24 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
         };
 
         println!("{:?}", item);
+        let status = match item.get("status") {
+            Some(s) => {
+                let s = s.as_s().expect("Unable to create string value");
+                let v = serde_json::from_str(s).expect("Unable to deserialize status");
+                Some(v)
+            }
+            None => None,
+        };
+
+        let ingest_date = match item.get("ingest_date") {
+            Some(s) => {
+                let s = s.as_s().expect("Unable to create string value");
+                let v = serde_json::from_str(s).expect("Unable to deserialize ingest_date");
+                Some(v)
+            }
+            None => None,
+        };
+
         let article_record = ArticleRecord {
             ulid: (*item.get("ulid").unwrap().as_s().unwrap()).clone(),
             source_url: (*item.get("article_url").unwrap().as_s().unwrap()).clone(),
@@ -78,11 +96,12 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
                 .as_s()
                 .unwrap())
             .clone(),
-            ingest_date: Some("".to_string()),
+            ingest_date,
             archive_url: Some(content_s3_arn.to_string()),
             summary: Some("".to_string()),
             s3_archive_arn: Some(content_s3_arn),
             s3_mp3_arn: Some("".to_string()),
+            status,
         };
         resp.push(article_record);
     }

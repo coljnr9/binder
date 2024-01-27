@@ -9,3 +9,4 @@ edition = "2021"
 ulid = "1.1.0"
 url = "2.4.1"
 serde = { version = "1.0.192", features = ["derive"]}
+chrono = { version = "0.4.33", features = ["serde"] }

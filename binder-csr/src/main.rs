@@ -400,6 +400,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         summary,
         s3_archive_arn,
         s3_mp3_arn,
+        status,
     } = article;
 
     // Maybe create a resource that loads...?
@@ -437,13 +438,23 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         },
     );
 
+    let ingest_date_view = match ingest_date {
+        Some(d) => d.to_rfc2822(),
+        None => "Unknown".to_owned(),
+    };
+
+    let status_view = match status {
+        Some(s) => format!("{:?}", s),
+        None => "Unknown".to_owned(),
+    };
+
     view! {
         <Collapsible>
 
             <CollapsibleHeader  slot>
             <Stack id="article-title-header" spacing=Size::Em(0.0)>
-                <H3>{title}</H3>
-                <div>{author}</div>
+                <H3>{title}  - Status: {status_view}</H3>
+                <div>{author} - Ingest: {ingest_date_view}</div>
                 </Stack>
             </CollapsibleHeader>
 
@@ -500,6 +511,7 @@ pub fn LibraryDrawerContent() -> impl IntoView {
         ulid: "1".to_string(),
         s3_archive_arn: None,
         s3_mp3_arn: None,
+        status: None,
     };
 
     view! {
