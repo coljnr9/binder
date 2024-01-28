@@ -5,4 +5,5 @@ members = [
     "binder-csr",
     "binder-lambdas/put-article-in-db",
     "binder-lambdas/get-articles",
+    "binder-lambdas/update-article",
  "types"]

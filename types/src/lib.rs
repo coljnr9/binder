@@ -41,6 +41,12 @@ pub struct ArticleRecord {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct ArticleStatusUpdateLambdaRequest {
+    pub ulid: Ulid,
+    pub status: ArticleStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ArticleLambdaRequest {
     pub article_url: String,
 }
