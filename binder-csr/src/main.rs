@@ -1,3 +1,4 @@
+use chrono::{Days, Local};
 use leptonic::prelude::*;
 use leptos::{
     error::Result,
@@ -7,7 +8,8 @@ use leptos::{
 };
 use leptos_icons::BsIcon;
 use leptos_router::*;
-use types::{ArticleLambdaRequest, ArticleRecord};
+use types::{ArticleLambdaRequest, ArticleRecord, ArticleStatus};
+use ulid::Ulid;
 
 use url::Url;
 
@@ -443,7 +445,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         None => "Unknown".to_owned(),
     };
 
-    let status_view = match status {
+    let status_view = match status.clone() {
         Some(s) => format!("{:?}", s),
         None => "Unknown".to_owned(),
     };
@@ -471,6 +473,9 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
                 };
                 view! {<div inner_html=html_text/>}
             }
+            <Button on_click=move |_| {
+                spawn_local(requeue_article(Ulid::from_string(&ulid).expect("Invalid ULID"), status.clone()));
+            }>"Finished Reading"</Button>
         </Stack>
 
 
@@ -482,6 +487,54 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
 }
 
 const NEW_ARTICLE_ENDPOINT: &'static str = "https://api.cole.plus/article";
+
+async fn requeue_article(article_ulid: Ulid, current_status: Option<ArticleStatus>) {
+    console_log("Requeuing article");
+    let current_status = current_status.unwrap_or(ArticleStatus::New);
+    let next_status = match current_status {
+        ArticleStatus::New => {
+            let now = Local::now();
+            let interval = Days::new(7);
+            ArticleStatus::Repetition1(now + interval)
+        }
+        ArticleStatus::Repetition1(d) => {
+            let now = Local::now();
+            let interval = Days::new(14);
+            ArticleStatus::Repetition2(now + interval)
+        }
+        ArticleStatus::Repetition2(d) => {
+            let now = Local::now();
+            let interval = Days::new(30);
+            ArticleStatus::Repetition3(now + interval)
+        }
+        ArticleStatus::Repetition3(d) => {
+            let now = Local::now();
+            let interval = Days::new(90);
+            ArticleStatus::Repetition4(now + interval)
+        }
+        ArticleStatus::Repetition4(d) => {
+            let now = Local::now();
+            let interval = Days::new(180);
+            ArticleStatus::Repetition5(now + interval)
+        }
+        ArticleStatus::Repetition5(d) => {
+            let now = Local::now();
+            let interval = Days::new(180);
+            ArticleStatus::Repetition5(now + interval)
+        }
+        ArticleStatus::Archive => ArticleStatus::Archive,
+    };
+
+    update_article_status(article_ulid, next_status).await;
+}
+
+async fn update_article_status(article_ulid: Ulid, new_status: ArticleStatus) {
+    // TODO(coljnr9) Actually hit the endpoint
+    console_log(&format!(
+        "Updating article {:?} with new status {:?}",
+        &article_ulid, &new_status
+    ));
+}
 
 async fn save_article(article_url: Url) {
     console_log(&format!("Saving {}", article_url));

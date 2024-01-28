@@ -8,7 +8,21 @@ use url::Url;
 pub enum ArticleStatus {
     New,
     Archive,
-    Repeat(DateTime<Local>),
+
+    /// 7 Days
+    Repetition1(DateTime<Local>),
+
+    /// 14 Days
+    Repetition2(DateTime<Local>),
+
+    /// 30 days
+    Repetition3(DateTime<Local>),
+
+    /// 90 Days
+    Repetition4(DateTime<Local>),
+
+    /// 180 Days
+    Repetition5(DateTime<Local>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
