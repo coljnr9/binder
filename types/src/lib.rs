@@ -1,28 +1,48 @@
 use chrono::offset::Local;
-use chrono::DateTime;
+use chrono::{DateTime, Duration};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use ulid::Ulid;
 use url::Url;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ArticleStatus {
     New,
+    Repetition1,
+    Repetition2,
+    Repetition3,
+    Repetition4,
     Archive,
+}
 
-    /// 7 Days
-    Repetition1(DateTime<Local>),
+impl ArticleStatus {
+    pub fn repeat_duration(&self) -> chrono::Duration {
+        match self {
+            ArticleStatus::New => Duration::weeks(1),
+            ArticleStatus::Repetition1 => Duration::weeks(2),
+            ArticleStatus::Repetition2 => Duration::weeks(4),
+            ArticleStatus::Repetition3 => Duration::weeks(12),
+            ArticleStatus::Repetition4 => Duration::weeks(26),
+            ArticleStatus::Archive => Duration::weeks(52),
+        }
+    }
 
-    /// 14 Days
-    Repetition2(DateTime<Local>),
+    pub fn next_status(&self) -> ArticleStatus {
+        match self {
+            ArticleStatus::New => ArticleStatus::Repetition1,
+            ArticleStatus::Repetition1 => ArticleStatus::Repetition2,
+            ArticleStatus::Repetition2 => ArticleStatus::Repetition3,
+            ArticleStatus::Repetition3 => ArticleStatus::Repetition4,
+            ArticleStatus::Repetition4 => ArticleStatus::Archive,
+            ArticleStatus::Archive => ArticleStatus::Archive,
+        }
+    }
+}
 
-    /// 30 days
-    Repetition3(DateTime<Local>),
-
-    /// 90 Days
-    Repetition4(DateTime<Local>),
-
-    /// 180 Days
-    Repetition5(DateTime<Local>),
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ArticleUpdateMethod {
+    Status(ArticleStatus),
+    NextReadDate(DateTime<Local>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +71,9 @@ pub struct ArticleRecord {
 
     #[serde(default)]
     pub status: Option<ArticleStatus>,
+
+    #[serde(default)]
+    pub next_read_date: Option<DateTime<Local>>,
     // TODO(coljnr9) Metadata/tags
 }
 

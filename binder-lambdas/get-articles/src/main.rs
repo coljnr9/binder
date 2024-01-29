@@ -1,9 +1,10 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::{types::AttributeValue, Client as DynamoDbClient};
+use chrono::{DateTime, Duration, Local};
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use types::ArticleRecord;
-
 #[derive(Deserialize)]
 struct Request {}
 
@@ -32,16 +33,22 @@ async fn main() -> Result<(), Error> {
 pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<ArticleRecord>, Error> {
     let title_not_found: AttributeValue =
         aws_sdk_dynamodb::types::AttributeValue::S(String::from("TITLE NOT FOUND"));
-    println!("Getting articles");
+    println!("Getting articles!!");
     let config = aws_config::load_defaults(BehaviorVersion::v2023_11_09()).await;
     let db_client = DynamoDbClient::new(&config);
 
     let page_size = 10;
     let table_name = "BinderArticles";
 
+    let next_read = Local::now() + Duration::weeks(4);
+    let next_read_str = serde_json::to_string(&next_read).unwrap();
+    println!("Next read filter date: {}", next_read_str);
+
     let items: Result<Vec<_>, _> = db_client
         .scan()
         .table_name(table_name)
+        .filter_expression("next_read_date < :three_weeks")
+        .expression_attribute_values(":three_weeks", AttributeValue::S(next_read_str))
         .limit(page_size)
         .into_paginator()
         .items()
@@ -79,6 +86,14 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
             None => None,
         };
 
+        let next_read_date = match item.get("next_read_date") {
+            Some(s) => {
+                let s = s.as_s().expect("Unable to create string value");
+                let v = serde_json::from_str(s).expect("Unable to deserialize ingest_date");
+                Some(v)
+            }
+            None => None,
+        };
         let article_record = ArticleRecord {
             ulid: (*item.get("ulid").unwrap().as_s().unwrap()).clone(),
             source_url: (*item.get("article_url").unwrap().as_s().unwrap()).clone(),
@@ -102,6 +117,7 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
             s3_archive_arn: Some(content_s3_arn),
             s3_mp3_arn: Some("".to_string()),
             status,
+            next_read_date,
         };
         resp.push(article_record);
     }

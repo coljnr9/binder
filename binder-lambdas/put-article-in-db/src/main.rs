@@ -90,6 +90,7 @@ async fn function_handler(
         s3_mp3_arn: None,
         ingest_date: Some(ingest_date),
         status: Some(article_status.clone()),
+        next_read_date: None,
     };
 
     info!("Building s3 client");
@@ -136,6 +137,10 @@ async fn function_handler(
                     .s3_archive_arn
                     .unwrap_or("No s3 archive".to_string()),
             ),
+        )
+        .item(
+            "next_read_date",
+            AttributeValue::S(serde_json::to_string(&article_record.next_read_date)?),
         )
         .send()
         .await;

@@ -1,4 +1,4 @@
-use chrono::{Days, Local};
+use chrono::{DateTime, Local};
 use leptonic::prelude::*;
 use leptos::{
     error::Result,
@@ -8,7 +8,7 @@ use leptos::{
 };
 use leptos_icons::BsIcon;
 use leptos_router::*;
-use types::{ArticleLambdaRequest, ArticleRecord, ArticleStatus};
+use types::{ArticleLambdaRequest, ArticleRecord, ArticleStatus, ArticleUpdateMethod};
 use ulid::Ulid;
 
 use url::Url;
@@ -293,7 +293,6 @@ pub fn LayoutAppBar() -> impl IntoView {
         </AppBar>
     }
 }
-
 async fn get_articles() -> Vec<ArticleRecord> {
     console_log("Getting articles");
     let response = match reqwasm::http::Request::get("https://api.cole.plus/articles")
@@ -335,7 +334,13 @@ pub fn Queue() -> impl IntoView {
                 0.5,
             )>
                 {move || match articles.get() {
-                    Some(articles) => {
+
+                    Some(mut articles) => {
+                        // articles.sort_by(|a, b| {
+                        //     let a_status = a.status.as_ref().unwrap_or(&ArticleStatus::New);
+                        //     let b_status = b.status.as_ref().unwrap_or(&ArticleStatus::New);
+                        //     a_status.partial_cmp(&b_status).unwrap_or(std::cmp::Ordering::Less)
+                        // });
                         articles
                             .into_iter()
                             .map(|a| view! { <ArticleDisplay article=a/> })
@@ -403,6 +408,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         s3_archive_arn,
         s3_mp3_arn,
         status,
+        next_read_date,
     } = article;
 
     // Maybe create a resource that loads...?
@@ -490,42 +496,32 @@ const NEW_ARTICLE_ENDPOINT: &'static str = "https://api.cole.plus/article";
 
 async fn requeue_article(article_ulid: Ulid, current_status: Option<ArticleStatus>) {
     console_log("Requeuing article");
-    let current_status = current_status.unwrap_or(ArticleStatus::New);
+
     let next_status = match current_status {
-        ArticleStatus::New => {
-            let now = Local::now();
-            let interval = Days::new(7);
-            ArticleStatus::Repetition1(now + interval)
-        }
-        ArticleStatus::Repetition1(d) => {
-            let now = Local::now();
-            let interval = Days::new(14);
-            ArticleStatus::Repetition2(now + interval)
-        }
-        ArticleStatus::Repetition2(d) => {
-            let now = Local::now();
-            let interval = Days::new(30);
-            ArticleStatus::Repetition3(now + interval)
-        }
-        ArticleStatus::Repetition3(d) => {
-            let now = Local::now();
-            let interval = Days::new(90);
-            ArticleStatus::Repetition4(now + interval)
-        }
-        ArticleStatus::Repetition4(d) => {
-            let now = Local::now();
-            let interval = Days::new(180);
-            ArticleStatus::Repetition5(now + interval)
-        }
-        ArticleStatus::Repetition5(d) => {
-            let now = Local::now();
-            let interval = Days::new(180);
-            ArticleStatus::Repetition5(now + interval)
-        }
-        ArticleStatus::Archive => ArticleStatus::Archive,
+        Some(status) => status.next_status(),
+        None => ArticleStatus::New,
     };
 
+    let next_read_date = Local::now() + next_status.repeat_duration();
+
+    update_article_next_read_date(article_ulid, next_read_date).await;
     update_article_status(article_ulid, next_status).await;
+}
+
+async fn update_article_next_read_date(article_ulid: Ulid, next_read_date: DateTime<Local>) {
+    // TODO(coljnr9) Actually hit the endpoint
+    console_log(&format!(
+        "Updating article {:?} with new read date {:?}",
+        &article_ulid, next_read_date
+    ));
+    let endpoint = format!("https://api.cole.plus/article/{}", article_ulid.to_string());
+
+    let body = ArticleUpdateMethod::NextReadDate(next_read_date);
+    let response = reqwasm::http::Request::put(&endpoint)
+        .body(serde_json::to_string(&body).expect("Unable to serialize new date"))
+        .send()
+        .await
+        .expect("Error sending update request");
 }
 
 async fn update_article_status(article_ulid: Ulid, new_status: ArticleStatus) {
@@ -534,6 +530,13 @@ async fn update_article_status(article_ulid: Ulid, new_status: ArticleStatus) {
         "Updating article {:?} with new status {:?}",
         &article_ulid, &new_status
     ));
+    let endpoint = format!("https://api.cole.plus/article/{}", article_ulid.to_string());
+    let body = ArticleUpdateMethod::Status(new_status);
+    let response = reqwasm::http::Request::put(&endpoint)
+        .body(serde_json::to_string(&body).expect("Unable to serialize new status"))
+        .send()
+        .await
+        .expect("Error sending update request");
 }
 
 async fn save_article(article_url: Url) {
@@ -565,6 +568,7 @@ pub fn LibraryDrawerContent() -> impl IntoView {
         s3_archive_arn: None,
         s3_mp3_arn: None,
         status: None,
+        next_read_date: None,
     };
 
     view! {
