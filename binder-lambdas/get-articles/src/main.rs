@@ -3,7 +3,8 @@ use aws_sdk_dynamodb::{types::AttributeValue, Client as DynamoDbClient};
 use chrono::{DateTime, Duration, Local};
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{error, info};
+
 use types::ArticleRecord;
 #[derive(Deserialize)]
 struct Request {}
@@ -30,6 +31,8 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
+const TABLE_NAME: &'static str = "BinderDb";
+
 pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<ArticleRecord>, Error> {
     let title_not_found: AttributeValue =
         aws_sdk_dynamodb::types::AttributeValue::S(String::from("TITLE NOT FOUND"));
@@ -38,17 +41,16 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
     let db_client = DynamoDbClient::new(&config);
 
     let page_size = 10;
-    let table_name = "BinderArticles";
 
     let next_read = Local::now() + Duration::weeks(4);
     let next_read_str = serde_json::to_string(&next_read).unwrap();
-    println!("Next read filter date: {}", next_read_str);
 
     let items: Result<Vec<_>, _> = db_client
-        .scan()
-        .table_name(table_name)
-        .filter_expression("next_read_date < :three_weeks")
-        .expression_attribute_values(":three_weeks", AttributeValue::S(next_read_str))
+        .query()
+        .table_name(TABLE_NAME)
+        .key_condition_expression("PK = :articles")
+        .expression_attribute_values(":articles", AttributeValue::S("Articles".to_string()))
+        .select(aws_sdk_dynamodb::types::Select::AllAttributes)
         .limit(page_size)
         .into_paginator()
         .items()
@@ -58,7 +60,7 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
 
     let mut resp = Vec::new();
     for item in items? {
-        let db_arn_item = item.get("s3_archive_arn").clone();
+        let db_arn_item = item.get("S3Arn").clone();
         let content_s3_arn = match db_arn_item {
             Some(data) => data
                 .as_s()
@@ -68,7 +70,7 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
         };
 
         println!("{:?}", item);
-        let status = match item.get("status") {
+        let status = match item.get("Status") {
             Some(s) => {
                 let s = s.as_s().expect("Unable to create string value");
                 let v = serde_json::from_str(s).expect("Unable to deserialize status");
@@ -77,34 +79,34 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Vec<Articl
             None => None,
         };
 
-        let ingest_date = match item.get("ingest_date") {
+        let ingest_date = match item.get("IngestDate") {
             Some(s) => {
                 let s = s.as_s().expect("Unable to create string value");
                 let v = serde_json::from_str(s).expect("Unable to deserialize ingest_date");
-                Some(v)
+                v
             }
-            None => None,
+            None => panic!("No IngestDate available in article read"),
         };
 
-        let next_read_date = match item.get("next_read_date") {
+        let next_read_date = match item.get("SK") {
             Some(s) => {
                 let s = s.as_s().expect("Unable to create string value");
                 let v = serde_json::from_str(s).expect("Unable to deserialize ingest_date");
-                Some(v)
+                v
             }
-            None => None,
+            None => panic!("Error handling Sort Key (SK)"),
         };
         let article_record = ArticleRecord {
-            ulid: (*item.get("ulid").unwrap().as_s().unwrap()).clone(),
-            source_url: (*item.get("article_url").unwrap().as_s().unwrap()).clone(),
+            ulid: (*item.get("Ulid").unwrap().as_s().unwrap()).clone(),
+            source_url: (*item.get("Url").unwrap().as_s().unwrap()).clone(),
             title: (*item
-                .get("title")
+                .get("Title")
                 .unwrap_or(&title_not_found)
                 .as_s()
                 .unwrap())
             .clone(),
             author: (*item
-                .get("author")
+                .get("Author")
                 .unwrap_or(&aws_sdk_dynamodb::types::AttributeValue::S(
                     "AUTHOR NOT FOUND".to_string(),
                 ))

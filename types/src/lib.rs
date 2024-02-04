@@ -60,7 +60,7 @@ pub struct ArticleRecord {
     pub archive_url: Option<String>,
 
     #[serde(default)]
-    pub ingest_date: Option<DateTime<Local>>,
+    pub ingest_date: DateTime<Local>,
 
     #[serde(default)]
     pub summary: Option<String>,
@@ -73,7 +73,7 @@ pub struct ArticleRecord {
     pub status: Option<ArticleStatus>,
 
     #[serde(default)]
-    pub next_read_date: Option<DateTime<Local>>,
+    pub next_read_date: DateTime<Local>,
     // TODO(coljnr9) Metadata/tags
 }
 

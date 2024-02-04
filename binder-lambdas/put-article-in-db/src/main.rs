@@ -23,6 +23,8 @@ use ulid::Ulid;
 const PARSE_ARTICLE: &'static str = "https://api.cole.plus/parse-article";
 const BINDER_CONTENT_BUCKET: &'static str = "binder-content";
 
+const BINDER_TABLE_NAME: &'static str = "BinderDb";
+
 async fn upload_to_s3(
     client: &S3Client,
     bucket: &str,
@@ -48,7 +50,9 @@ async fn function_handler(
     event: LambdaEvent<ArticleLambdaRequest>,
 ) -> Result<ArticleLambdaResponse, Error> {
     info!("Starting put-article-in-db lambda");
+
     let ulid = Ulid::new().to_string();
+
     let content_object_name = format!("{}-content", &ulid);
     let content_s3_arn = format!("{}/{}", BINDER_CONTENT_BUCKET, &content_object_name);
 
@@ -56,8 +60,6 @@ async fn function_handler(
     let mp3_s3_arn = format!("{}/{}", BINDER_CONTENT_BUCKET, &mp3_object_name);
 
     let ArticleLambdaRequest { article_url } = event.payload;
-
-    let parsed_article_url = Url::parse(&article_url)?;
     let client = ReqClient::new();
 
     let body = ParseArticleBody {
@@ -73,24 +75,24 @@ async fn function_handler(
         .await?;
 
     let parsed_article: ParsedArticle = parsing_response.json().await?;
+
     // Create article struct
     let ingest_date = Local::now();
     let article_status = ArticleStatus::New;
+    let next_read_date = ingest_date + article_status.repeat_duration();
 
     let article_record = ArticleRecord {
         ulid,
         title: parsed_article.title.unwrap_or("No title found".to_string()),
-        author: parsed_article
-            .byline
-            .unwrap_or("No author found".to_string()),
+        author: parsed_article.byline.unwrap_or("UNKNOWN".to_string()),
         source_url: article_url.to_string(),
         archive_url: None,
         summary: None,
         s3_archive_arn: Some(content_s3_arn),
         s3_mp3_arn: None,
-        ingest_date: Some(ingest_date),
+        ingest_date,
         status: Some(article_status.clone()),
-        next_read_date: None,
+        next_read_date,
     };
 
     info!("Building s3 client");
@@ -117,30 +119,32 @@ async fn function_handler(
     let db_client = DynamoDbClient::new(&config);
     let db_storage_result = db_client
         .put_item()
-        .table_name("BinderArticles")
-        .item("ulid", AttributeValue::S(article_record.ulid))
-        .item("article_url", AttributeValue::S(article_record.source_url))
-        .item("title", AttributeValue::S(article_record.title))
-        .item("author", AttributeValue::S(article_record.author))
+        .table_name(BINDER_TABLE_NAME)
+        .item("PK", AttributeValue::S("Articles".to_string()))
+        // Sort Key is the next read date
         .item(
-            "ingest_date",
-            AttributeValue::S(serde_json::to_string(&ingest_date)?),
+            "SK",
+            AttributeValue::S(serde_json::to_string(&article_record.next_read_date)?),
         )
         .item(
-            "status",
+            "IngestDate",
+            AttributeValue::S(serde_json::to_string(&article_record.ingest_date)?),
+        )
+        .item("Ulid", AttributeValue::S(article_record.ulid.clone()))
+        .item("Title", AttributeValue::S(article_record.title.clone()))
+        .item("Url", AttributeValue::S(article_record.source_url))
+        .item("Author", AttributeValue::S(article_record.author))
+        .item(
+            "Status",
             AttributeValue::S(serde_json::to_string(&article_status)?),
         )
         .item(
-            "s3_archive_arn",
+            "S3Arn",
             AttributeValue::S(
                 article_record
                     .s3_archive_arn
                     .unwrap_or("No s3 archive".to_string()),
             ),
-        )
-        .item(
-            "next_read_date",
-            AttributeValue::S(serde_json::to_string(&article_record.next_read_date)?),
         )
         .send()
         .await;
