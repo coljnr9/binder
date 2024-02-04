@@ -320,6 +320,12 @@ async fn get_articles() -> Vec<ArticleRecord> {
     articles
 }
 
+async fn get_articles_by_next_read_date(
+    start_date: Option<DateTime<Local>>,
+    end_date: Option<DateTime<Local>>,
+) -> Vec<ArticleRecord> {
+}
+
 //  The main feed of articles to read/listen to
 #[component]
 pub fn Queue() -> impl IntoView {

@@ -11,7 +11,7 @@ use tracing::info;
 use types::{ArticleStatus, ArticleStatusUpdateLambdaRequest, ArticleUpdateMethod};
 use ulid::Ulid;
 
-const BINDER_TABLE_NAME: &'static str = "BinderArticles";
+const BINDER_TABLE_NAME: &'static str = "BinderDb";
 async fn function_handler(request: Request) -> Result<Response<String>, Error> {
     // Extract some useful information from the request
     info!("In update article function handler");
@@ -56,16 +56,96 @@ async fn update_status(
 ) -> Result<(), Error> {
     info!("Updating article {:?} with status={:?}", ulid, new_status);
 
-    client
-        .update_item()
+    // First get the article by ulid
+    let article_item: Result<Vec<_>, _> = client
+        .query()
         .table_name(BINDER_TABLE_NAME)
-        .key("ulid", AttributeValue::S(ulid.to_string()))
-        .expression_attribute_names("#S", "status")
-        .update_expression("SET #S= :new_status")
-        .expression_attribute_values(
-            ":new_status",
-            AttributeValue::S(serde_json::to_string(&new_status)?),
+        .index_name("Ulid-SK-index")
+        .key_condition_expression("Ulid = :ulid")
+        // .expression_attribute_names(":ulid_attr", "Ulid")
+        .expression_attribute_values(":ulid", AttributeValue::S(ulid.to_string()))
+        .into_paginator()
+        .items()
+        .send()
+        .collect()
+        .await;
+
+    let article_item = article_item?.pop().expect("Returned article not found");
+    let pk = article_item.get("PK").expect("Unable to extract PK");
+    let sk = article_item.get("SK").expect("Unable to extract SK");
+    let status_str = article_item
+        .get("Status")
+        .expect("Unable to extract Status")
+        .as_s()
+        .expect("Unable to turn status to str");
+    let status: ArticleStatus =
+        serde_json::from_str(&status_str).expect("Unable to DE serialize status");
+    let next_status = status.next_status();
+    let status_value = AttributeValue::S(serde_json::to_string(&next_status)?);
+
+    let next_read_date = Local::now() + new_status.repeat_duration();
+    let new_sk = AttributeValue::S(serde_json::to_string(&next_read_date)?);
+
+    // Then, use the article sort key to perform an update
+    info!("pk: {:#?}", &pk);
+    info!("sk: {:#?}", &sk);
+
+    client
+        .put_item()
+        .table_name(BINDER_TABLE_NAME)
+        .item("PK", pk.clone())
+        .item("SK", new_sk)
+        .item(
+            "Ulid",
+            article_item
+                .get("Ulid")
+                .expect("Unable to retrieve Ulid")
+                .clone(),
         )
+        .item(
+            "Author",
+            article_item
+                .get("Author")
+                .expect("Unable to retrieve Author")
+                .clone(),
+        )
+        .item(
+            "IngestDate",
+            article_item
+                .get("IngestDate")
+                .expect("Unable to retrieve IngestDate")
+                .clone(),
+        )
+        .item(
+            "S3Arn",
+            article_item
+                .get("S3Arn")
+                .expect("Unable to retrieve S3Arn")
+                .clone(),
+        )
+        .item("Status", status_value)
+        .item(
+            "Title",
+            article_item
+                .get("Title")
+                .expect("Unable to retrieve Title")
+                .clone(),
+        )
+        .item(
+            "Url",
+            article_item
+                .get("Url")
+                .expect("Unable to retrieve Url")
+                .clone(),
+        )
+        .send()
+        .await?;
+
+    client
+        .delete_item()
+        .table_name(BINDER_TABLE_NAME)
+        .key("PK", pk.clone())
+        .key("SK", sk.clone())
         .send()
         .await?;
 

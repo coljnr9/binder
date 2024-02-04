@@ -8,7 +8,7 @@ use aws_sdk_s3::{config::Region, meta::PKG_VERSION, Client as S3Client, Error as
 use aws_types::sdk_config::SdkConfig;
 use bytes::Bytes;
 
-use chrono::{offset::Local, DateTime};
+use chrono::{format::SecondsFormat, offset::Local, DateTime};
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use reqwest::Client as ReqClient;
 use url::Url;
@@ -124,7 +124,11 @@ async fn function_handler(
         // Sort Key is the next read date
         .item(
             "SK",
-            AttributeValue::S(serde_json::to_string(&article_record.next_read_date)?),
+            AttributeValue::S(
+                article_record
+                    .next_read_date
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            ),
         )
         .item(
             "IngestDate",
