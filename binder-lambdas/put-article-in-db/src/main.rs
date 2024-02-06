@@ -79,7 +79,9 @@ async fn function_handler(
     // Create article struct
     let ingest_date = Local::now();
     let article_status = ArticleStatus::New;
-    let next_read_date = ingest_date + article_status.repeat_duration();
+
+    // A new article should be read immediately
+    let next_read_date = ingest_date;
 
     let article_record = ArticleRecord {
         ulid,

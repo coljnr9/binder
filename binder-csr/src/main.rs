@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local};
 use leptonic::prelude::*;
 use leptos::{
     error::Result,
@@ -15,7 +15,7 @@ use url::Url;
 
 fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
-    mount_to_body(|| view! { <App /> })
+    mount_to_body(|| view! { <App/> })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,10 +35,6 @@ impl AppLayoutContext {
         let currently_closed = self.library_drawer_closed.get_untracked();
         console_log(&format!("currently_closed={}", currently_closed));
         self.set_library_drawer_closed.set(!currently_closed);
-        console_log(&format!(
-            "After setting: currently_closed={}",
-            currently_closed
-        ));
     }
 }
 
@@ -53,8 +49,10 @@ pub fn App() -> impl IntoView {
 
             <Routes>
                 <Route path="" view=Layout>
-                    <Route path="" view=|| view! { <Queue/> }/>
+                    <Route path="" view=|| view! { <ReadingList/> }/>
                     <Route path="faq" view=|| view! { <Faq/> }/>
+                    <Route path="archive" view=|| view! { <ArticleArchive/> }/>
+                    <Route path=":author" view=|| view! { <AuthorAnthology/> }/>
                 </Route>
             </Routes>
         </Root>
@@ -190,8 +188,6 @@ pub fn Layout() -> impl IntoView {
         <LayoutAppBar/>
         <Outlet/>
         <LibraryDrawer/>
-
-        // Whatever page needs to be rendered
     }
 }
 
@@ -259,19 +255,19 @@ pub fn LayoutAppBar() -> impl IntoView {
 
     view! {
         <AppBar id="app-bar">
-         <div class="flex-layout">
-            <div class="binder-left">
-            <Icon
-                id="library-trigger"
-                class="library-icon"
-                icon=BsIcon::BsList
-                on:click=move |_| ctx.toggle_library_drawer()
-            />
+            <div class="flex-layout">
+                <div class="binder-left">
+                    <Icon
+                        id="library-trigger"
+                        class="library-icon"
+                        icon=BsIcon::BsList
+                        on:click=move |_| ctx.toggle_library_drawer()
+                    />
 
-            <H1 style="margin: 0;">"Binder"</H1>
-            </div>
+                    <H1 style="margin: 0;">"Binder"</H1>
+                </div>
 
-            <div class="search">
+                <div class="search">
                     <TextInput
                         get=article_url
                         set=set_article_url
@@ -286,10 +282,10 @@ pub fn LayoutAppBar() -> impl IntoView {
 
                         "Add"
                     </Button>
-            </div>
+                </div>
 
-            <ThemeToggle off=LeptonicTheme::Light on=LeptonicTheme::Dark/>
-        </div>
+                <ThemeToggle off=LeptonicTheme::Light on=LeptonicTheme::Dark/>
+            </div>
         </AppBar>
     }
 }
@@ -324,38 +320,162 @@ async fn get_articles_by_next_read_date(
     start_date: Option<DateTime<Local>>,
     end_date: Option<DateTime<Local>>,
 ) -> Vec<ArticleRecord> {
+    console_log("Getting articles in date range");
+    let mut url_str = "https://api.cole.plus/articles".to_string();
+    match (start_date, end_date) {
+        (Some(s), Some(e)) => url_str.push_str(&format!(
+            "?start={}&end={}",
+            s.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            e.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+        )),
+        (Some(s), None) => url_str.push_str(&format!(
+            "?start={}",
+            s.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+        )),
+        (None, Some(e)) => url_str.push_str(&format!(
+            "?end={}",
+            e.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+        )),
+        (None, None) => {}
+    };
+    let response = match reqwasm::http::Request::get(&url_str).send().await {
+        Ok(response) => {
+            console_log("Got response.");
+            response
+        }
+        Err(e) => {
+            console_log(&format!("Error retrieving article data: {e}"));
+            panic!()
+        }
+    };
+    let articles: Vec<ArticleRecord> = match response.json().await {
+        Ok(articles) => articles,
+        Err(e) => {
+            console_log(&format!("Error deserializing articles: {e}"));
+            panic!();
+        }
+    };
+    console_log(&format!("Returning articles: {:#?}", articles));
+
+    articles
+}
+
+#[component]
+pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoView {
+    let bulk_articles = articles.split_off(3);
+    console_log(&format!(
+        "Got {} preview, {} bulk",
+        articles.len(),
+        bulk_articles.len()
+    ));
+    let (visible, set_visible) = create_signal(false);
+
+    view! {
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <H2>Next Up to (Re-)Read</H2>
+
+            <Stack spacing=Size::Em(0.5) style="min-width: 50%">
+
+                {articles
+                    .into_iter()
+                    .map(|a| view! { <ArticleDisplay article=a.clone()/> })
+                    .collect_view()}
+
+                <Button on_click=move |_| {
+                    let new_visible = !visible.get();
+                    console_log(&format!("New visible: {}", new_visible));
+                    set_visible.set(new_visible);
+                }>"See all"</Button>
+            </Stack>
+
+            <Stack
+                id="bulk-articles"
+                spacing=Size::Em(0.5)
+                style=move || {
+                    if visible.get() {
+                        "min-width: 50%; visibility: visible;"
+                    } else {
+                        "min-width: 50%; visibility: hidden;"
+                    }
+                }
+            >
+                <H3>All Recent Articles</H3>
+
+                {bulk_articles
+                    .into_iter()
+                    .map(|a| view! { <ArticleDisplay article=a.clone()/> })
+                    .collect_view()}
+
+            </Stack>
+        </div>
+    }
+}
+
+#[component]
+pub fn ArticleArchive() -> impl IntoView {
+    let articles = create_resource(
+        move || (),
+        move |_| async move { get_articles_by_next_read_date(None, None).await },
+    );
+
+    view! {
+        <Box id="queue">
+            {move || match articles.get() {
+                None => {
+                    view! {
+                        <Stack spacing=Size::Em(0.5)>
+                            <H1>Article Archive</H1>
+                            <Skeleton height=Size::Em(5.0)>Loading...</Skeleton>
+                            <Skeleton height=Size::Em(5.0)/>
+                            <Skeleton height=Size::Em(5.0)/>
+                            <Skeleton height=Size::Em(5.0)/>
+                            <Skeleton height=Size::Em(5.0)/>
+                        </Stack>
+                    }
+                }
+                Some(v) => {
+                    view! {
+                        <Stack spacing=Size::Em(0.5) style="min-width: 50%">
+                            <H1>Article Archive</H1>
+                            {v
+                                .into_iter()
+                                .map(|a| view! { <ArticleDisplay article=a.clone()/> })
+                                .collect_view()}
+
+                        </Stack>
+                    }
+                }
+            }}
+
+        </Box>
+    }
 }
 
 //  The main feed of articles to read/listen to
 #[component]
-pub fn Queue() -> impl IntoView {
-    let articles = create_resource(|| (), |_| async move { get_articles().await });
+pub fn ReadingList() -> impl IntoView {
+    let article_read_date_start = None;
+    let article_read_date_end = Some(Local::now() + Duration::weeks(1));
+    let articles = create_resource(
+        move || (article_read_date_start, article_read_date_end),
+        move |_| async move {
+            get_articles_by_next_read_date(article_read_date_start, article_read_date_end).await
+        },
+    );
+
+    // 1. Loading
+    // 2. No articles
+    // 2. 1-3 Articles
+    // 3. 4+ Articles
+
     view! {
         <Box id="queue">
-            <div style="display: flex; flex-direction: row; justify-content: center">
-                <H2>Queue</H2>
-            </div>
-
-            <Stack spacing=Size::Em(
-                0.5,
-            )>
-                {move || match articles.get() {
-
-                    Some(mut articles) => {
-                        // articles.sort_by(|a, b| {
-                        //     let a_status = a.status.as_ref().unwrap_or(&ArticleStatus::New);
-                        //     let b_status = b.status.as_ref().unwrap_or(&ArticleStatus::New);
-                        //     a_status.partial_cmp(&b_status).unwrap_or(std::cmp::Ordering::Less)
-                        // });
-                        articles
-                            .into_iter()
-                            .map(|a| view! { <ArticleDisplay article=a/> })
-                            .collect_view()
-                    }
-                    None => view! { <p>"Loading..."</p> }.into_view(),
-                }}
-
-            </Stack>
+            {move || match articles.get() {
+                None => view! { <Skeleton height=Size::Em(5.0)/> },
+                Some(v) if v.is_empty() => view! { <H3>Reading list empty</H3> },
+                Some(v) if v.len() < 3 => view! { <H3>There are few articles</H3> },
+                Some(v) => view! { <LargeReadingListDisplay articles=v/> },
+            }}
 
         </Box>
     }
@@ -399,6 +519,11 @@ pub struct Article {
     archive_url: Option<String>,
     // Populated once Amazon Polly pushes an MP3 to S3
     mp3_url: Option<String>,
+}
+
+#[component]
+pub fn AuthorAnthology() -> impl IntoView {
+    view! { <H1>Works by Author</H1> }
 }
 
 #[component]
@@ -452,11 +577,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         },
     );
 
-    let ingest_date_view = match ingest_date {
-        Some(d) => d.to_rfc2822(),
-        None => "Unknown".to_owned(),
-    };
-
+    let ingest_date_view = ingest_date.to_rfc2822();
     let status_view = match status.clone() {
         Some(s) => format!("{:?}", s),
         None => "Unknown".to_owned(),
@@ -465,32 +586,41 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
     view! {
         <Collapsible>
 
-            <CollapsibleHeader  slot>
-            <Stack id="article-title-header" spacing=Size::Em(0.0)>
-                <H3>{title}  - Status: {status_view}</H3>
-                <div>{author} - Ingest: {ingest_date_view}</div>
+            <CollapsibleHeader slot>
+                <Stack id="article-title-header" spacing=Size::Em(0.0)>
+                    <H3>{title}</H3>
+                    <div>
+                        <a href=author.clone()>{author}</a>
+                    </div>
+                    <div>Read by: {next_read_date.to_rfc2822()}</div>
                 </Stack>
             </CollapsibleHeader>
 
-            <CollapsibleBody slot >
+            <CollapsibleBody slot>
+                <div style="display: flex; align-items: flex-start; flex-direction: column;">
+                    <a href=source_url.clone() rel="external">
+                        Source:
+                        {source_url}
+                    </a>
 
-            <Stack class="article-body" spacing=Size::Em(1.5)>
+                    {
+                        let html_text = move || match article_content.get() {
+                            None => "Loading...".to_string(),
+                            Some(d) => d,
+                        };
+                        view! { <div inner_html=html_text></div> }
+                    }
 
-            <a href={source_url} rel="external">Source Url</a>
+                    <Button on_click=move |_| {
+                        spawn_local(
+                            requeue_article(
+                                Ulid::from_string(&ulid).expect("Invalid ULID"),
+                                status.clone(),
+                            ),
+                        );
+                    }>"Finished Reading"</Button>
 
-            {
-                let html_text = move || match article_content.get() {
-                    None => "Loading...".to_string(),
-                    Some(d) => d
-                };
-                view! {<div inner_html=html_text/>}
-            }
-            <Button on_click=move |_| {
-                spawn_local(requeue_article(Ulid::from_string(&ulid).expect("Invalid ULID"), status.clone()));
-            }>"Finished Reading"</Button>
-        </Stack>
-
-
+                </div>
 
             </CollapsibleBody>
 
@@ -563,24 +693,9 @@ async fn save_article(article_url: Url) {
 pub fn LibraryDrawerContent() -> impl IntoView {
     let ctx = use_context::<AppLayoutContext>().unwrap();
 
-    let article = ArticleRecord {
-        title: "Test Article".to_string(),
-        author: "Cole Rogers".to_string(),
-        source_url: "cole.plus".to_string(),
-        summary: None,
-        archive_url: None,
-        ingest_date: None,
-        ulid: "1".to_string(),
-        s3_archive_arn: None,
-        s3_mp3_arn: None,
-        status: None,
-        next_read_date: None,
-    };
-
     view! {
         <Box id="library-drawer-content">
             <H3>Next Up</H3>
-            <ArticleDisplay article=article.clone()/>
 
             <Collapsible>
                 <CollapsibleHeader slot>
@@ -594,27 +709,15 @@ pub fn LibraryDrawerContent() -> impl IntoView {
                             </A>
                         </Skeleton>
                         <Skeleton>
+                            <A href="archive">
+                                <H2>Archive</H2>
+                            </A>
+                        </Skeleton>
+                        <Skeleton>
                             <A href="faq">
                                 <H3>FAQ</H3>
                             </A>
                         </Skeleton>
-                    </Stack>
-                </CollapsibleBody>
-            </Collapsible>
-
-            <Collapsible>
-                <CollapsibleHeader slot>
-                    <H3>Linked</H3>
-                </CollapsibleHeader>
-                <CollapsibleBody class="my-body" slot>
-                    <Stack spacing=Size::Em(
-                        0.5,
-                    )>
-                        {(0..15)
-                            .map(|n| {
-                                view! { <ArticleDisplay article=article.clone()/> }
-                            })
-                            .collect_view()}
                     </Stack>
                 </CollapsibleBody>
             </Collapsible>

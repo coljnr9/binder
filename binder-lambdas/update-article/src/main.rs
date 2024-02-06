@@ -4,7 +4,7 @@ use aws_sdk_dynamodb::{
     Client as DynamoDbClient,
 };
 
-use chrono::{DateTime, Local};
+use chrono::{format::SecondsFormat, DateTime, Local};
 use lambda_http::{run, service_fn, Body, Request, RequestExt, Response};
 use lambda_runtime::{Error, LambdaEvent};
 use tracing::info;
@@ -84,7 +84,7 @@ async fn update_status(
     let status_value = AttributeValue::S(serde_json::to_string(&next_status)?);
 
     let next_read_date = Local::now() + new_status.repeat_duration();
-    let new_sk = AttributeValue::S(serde_json::to_string(&next_read_date)?);
+    let new_sk = AttributeValue::S(next_read_date.to_rfc3339_opts(SecondsFormat::Millis, true));
 
     // Then, use the article sort key to perform an update
     info!("pk: {:#?}", &pk);
@@ -164,10 +164,10 @@ async fn update_next_read_date(
         .table_name(BINDER_TABLE_NAME)
         .key("ulid", AttributeValue::S(ulid.to_string()))
         .expression_attribute_names("#D", "next_read_date")
-        .update_expression("SET #D= :next_read_date")
+        .update_expression("SET #D = :next_read_date")
         .expression_attribute_values(
             ":next_read_date",
-            AttributeValue::S(serde_json::to_string(&date)?),
+            AttributeValue::S(date.to_rfc3339_opts(SecondsFormat::Millis, true)),
         )
         .send()
         .await?;

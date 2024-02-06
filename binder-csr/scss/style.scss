@@ -24,6 +24,7 @@ html, body{
 
 #article-title-header {
     align-items: unset;
+    min-width: 50%;
 }
 
 
@@ -152,6 +153,9 @@ html, body{
 
 .article-body div {
     max-width: 100%;
+    display: flex;
+    align-content: flex-start;
+
 }
 
 img {
