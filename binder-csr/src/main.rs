@@ -371,7 +371,9 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
     let (visible, set_visible) = create_signal(false);
 
     view! {
-        <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style=
+                "display: flex; flex-direction: column; align-items: center; height: 100%; overflow: scroll; min-width: 50%;"
+        >
             <H2>Next Up to (Re-)Read</H2>
 
             <Stack spacing=Size::Em(0.5) style="min-width: 50%">
@@ -381,24 +383,19 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
                     .map(|a| view! { <ArticleDisplay article=a.clone()/> })
                     .collect_view()}
 
-                <Button on_click=move |_| {
-                    let new_visible = !visible.get();
-                    console_log(&format!("New visible: {}", new_visible));
-                    set_visible.set(new_visible);
-                }>"See all"</Button>
             </Stack>
 
-            <Stack
-                id="bulk-articles"
-                spacing=Size::Em(0.5)
-                style=move || {
-                    if visible.get() {
-                        "min-width: 50%; visibility: visible;"
-                    } else {
-                        "min-width: 50%; visibility: hidden;"
-                    }
+            <Button on_click=move |_| {
+                let new_visible = !visible.get();
+                set_visible.set(new_visible);
+            }>"See all"</Button>
+            <Stack id="bulk-articles" spacing=Size::Em(0.5) style=move || {
+                if visible.get() {
+                    "display: inline; align-items: center; height: 100%; overflow: scroll; min-width: 50%;"
+                } else {
+                    "display: none;"
                 }
-            >
+            }>
                 <H3>All Recent Articles</H3>
 
                 {bulk_articles
@@ -608,7 +605,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
                             None => "Loading...".to_string(),
                             Some(d) => d,
                         };
-                        view! { <div inner_html=html_text></div> }
+                        view! { <div style="font-size: 18px; line-height: 1.75; font-family: Fira Code, Open Sans, sans-serif;" inner_html=html_text></div> }
                     }
 
                     <Button on_click=move |_| {
