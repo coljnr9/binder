@@ -50,7 +50,7 @@
     
 
     --drawer-background-color: none;
-    --drawer-box-shadow: none;
+    --drawer-box-shadow: var(--dark-black);
 }
 
 /* For mobile phones: */
@@ -117,7 +117,7 @@ a:visited {
 
     margin: 0;
     padding: 0;
-    min-width: 480px
+    min-width: 480px;
 }
 
 @media only screen and (max-width: 479px) {
@@ -136,13 +136,12 @@ a:visited {
     height: auto;
     width: 100%;
     margin: 0;
-    padding: 1em;
-    padding-right: 5em;
 }
 
 #library-drawer #library-drawer-content {
     position: relative;
     overflow-y: scroll;
+    height: 100%;
 }
 
 #app-bar {
@@ -192,7 +191,8 @@ a:visited {
 }
 
 #library-drawer #library-drawer-app-bar {
-    position: absolute;
+    position: sticky;
+    top: 0;
     // height: 4.5em;
     width: 100%;
     margin: 0;
@@ -226,7 +226,6 @@ img {
 }
 #library-drawer #library-drawer-content {
     position: relative;
-    top: 4.5em;
     overflow-y: scroll;
 }
 
