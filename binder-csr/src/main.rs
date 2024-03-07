@@ -362,49 +362,58 @@ async fn get_articles_by_next_read_date(
 
 #[component]
 pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoView {
-    let bulk_articles = articles.split_off(3);
-    console_log(&format!(
-        "Got {} preview, {} bulk",
-        articles.len(),
-        bulk_articles.len()
-    ));
-    let (visible, set_visible) = create_signal(false);
+    let preview_articles = articles[..3]
+        .iter()
+        .map(|article| (article.ulid.clone(), article.clone()))
+        .collect::<Vec<_>>();
+
+    let (visible_articles, set_visible_articles) = create_signal(preview_articles);
+    let (display_all, set_display_all) = create_signal(false);
+    let (button_text, set_button_text) = create_signal("Show all");
+
+    let update_article_view = move |_| {
+        let articles = articles.iter();
+
+        set_display_all.update(move |value| *value = !*value);
+
+        if display_all.get() {
+            set_visible_articles.update(move |visible_articles| {
+                for article in articles.skip(3) {
+                    visible_articles.push((article.ulid.clone(), article.clone()))
+                }
+            });
+            set_button_text.update(move |text| *text = "Hide");
+        } else {
+            set_visible_articles.update(move |visible_articles| {
+                visible_articles.clear();
+                for article in articles.take(3) {
+                    visible_articles.push((article.ulid.clone(), article.clone()))
+                }
+            });
+            set_button_text.update(move |text| *text = "Show all");
+        }
+    };
 
     view! {
-        <div style=
-                "display: flex; flex-direction: column; align-items: center; height: 100%; overflow: scroll; min-width: 50%;"
-        >
-            <H2>Next Up to (Re-)Read</H2>
-
+        // <div style="display: flex; flex-direction: column; align-items: center; height: 100%; overflow: scroll; min-width: 50%;">
+            // <H2>Next Up to (Re-)Read</H2>
+        <Button on_click=update_article_view>{move || button_text.get() }</Button>
+        <Collapsibles default_on_open=OnOpen::CloseOthers>
             <Stack spacing=Size::Em(0.5) style="min-width: 50%">
-
-                {articles
-                    .into_iter()
-                    .map(|a| view! { <ArticleDisplay article=a.clone()/> })
-                    .collect_view()}
-
-            </Stack>
-
-            <Button on_click=move |_| {
-                let new_visible = !visible.get();
-                set_visible.set(new_visible);
-            }>"See all"</Button>
-            <Stack id="bulk-articles" spacing=Size::Em(0.5) style=move || {
-                if visible.get() {
-                    "display: inline; align-items: center; height: 100%; overflow: scroll; min-width: 50%;"
-                } else {
-                    "display: none;"
-                }
-            }>
-                <H3>All Recent Articles</H3>
-
-                {bulk_articles
-                    .into_iter()
-                    .map(|a| view! { <ArticleDisplay article=a.clone()/> })
-                    .collect_view()}
+                <For
+                    each=move || visible_articles.get()
+                    key = |a| a.0.clone()
+                    children=move |(_, article)| {
+                        view! {
+                            <ArticleDisplay article=article.clone()/>
+                        }
+                    }
+                />
 
             </Stack>
-        </div>
+        </Collapsibles>
+
+        // </div>
     }
 }
 
