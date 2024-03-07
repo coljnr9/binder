@@ -1,4 +1,58 @@
 @import "../generated/leptonic/leptonic-themes";
+
+
+[data-theme="dark"] {
+    --font-family: "Titilliue Web", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+    --text-color: #cccccc;
+    
+    --foreground-color: #f8f8f2;
+    --background-color: #282a36;
+
+    --hot-pink: #ff33cc;
+
+    --dark-black: #21222c;
+    --light-black: #6272a4;
+
+    --dark-red: #ff5555
+    --light-red: #ff6e6e
+  
+    --dark-green: #50fa7b;
+    --light-green: #69ff94;
+
+    --dark-yellow: #f1fa8c;
+    --light-yellow: #ffffa5;
+
+    --dark-blue: #bd93f9;
+    --light-blue: #d6acff;
+
+    --dark-magenta: #ff79c6;
+    --light-magenta: #ff92df;
+
+    --dark-cyan: #8be9fd;
+    --light-cyan: #a4ffff;
+
+    --dark-white: #f8f8f2;
+    --light-white: #ffffff;
+
+    --url-color: #ffb86c;
+    --visited-url-color: #994f00;
+
+    --brand-color: #8b39fd;
+    
+    --std-text-bright: var(--text-color);
+    --box-background-color: var(--background-color);
+
+    --app-bar-background-color: var(--dark-black);
+
+    --collapsible-header-background-color: var(--dark-black);
+    --collapsible-body-background-color: var(--background-color);
+
+    
+
+    --drawer-background-color: none;
+    --drawer-box-shadow: none;
+}
+
 /* For mobile phones: */
 [class*="col-"] {
   width: 100%;
@@ -10,6 +64,14 @@ html, body{
     margin: 0;
     height: 100%;
     overflow: clip;
+}
+
+a:link {
+    color: var(--url-color);
+}
+
+a:visited {
+    color: var(--visited-url-color);
 }
 
 

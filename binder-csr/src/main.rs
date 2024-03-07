@@ -369,7 +369,7 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
 
     let (visible_articles, set_visible_articles) = create_signal(preview_articles);
     let (display_all, set_display_all) = create_signal(false);
-    let (button_text, set_button_text) = create_signal("Show all");
+    let (button_text, set_button_text) = create_signal("Show more...");
 
     let update_article_view = move |_| {
         let articles = articles.iter();
@@ -382,7 +382,7 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
                     visible_articles.push((article.ulid.clone(), article.clone()))
                 }
             });
-            set_button_text.update(move |text| *text = "Hide");
+            set_button_text.update(move |text| *text = "Show less...");
         } else {
             set_visible_articles.update(move |visible_articles| {
                 visible_articles.clear();
@@ -390,14 +390,12 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
                     visible_articles.push((article.ulid.clone(), article.clone()))
                 }
             });
-            set_button_text.update(move |text| *text = "Show all");
+            set_button_text.update(move |text| *text = "Show more...");
         }
     };
 
     view! {
-        // <div style="display: flex; flex-direction: column; align-items: center; height: 100%; overflow: scroll; min-width: 50%;">
-            // <H2>Next Up to (Re-)Read</H2>
-        <Button on_click=update_article_view>{move || button_text.get() }</Button>
+        <H2>Next Up</H2>
         <Collapsibles default_on_open=OnOpen::CloseOthers>
             <Stack spacing=Size::Em(0.5) style="min-width: 50%">
                 <For
@@ -412,7 +410,9 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
 
             </Stack>
         </Collapsibles>
-
+        <div style="position: sticky; bottom: 10px; margin: 10px; display: flex; flex-direction: row; justify-content: flex-end;">
+            <Button on_click=update_article_view style="max-width: 20%; justify-content: flex-center;">{ move || button_text.get() }</Button>
+        </div>
         // </div>
     }
 }
