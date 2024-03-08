@@ -1,5 +1,5 @@
 use chrono::{DateTime, Duration, Local};
-use leptonic::prelude::*;
+use leptonic::{components::prelude::*, prelude::*};
 use leptos::{
     error::Result,
     html::{div, A},
@@ -45,16 +45,20 @@ pub fn App() -> impl IntoView {
             <Router>
                 <nav></nav>
                 <main></main>
-            </Router>
 
-            <Routes>
-                <Route path="" view=Layout>
-                    <Route path="" view=|| view! { <ReadingList/> }/>
-                    <Route path="faq" view=|| view! { <Faq/> }/>
-                    <Route path="archive" view=|| view! { <ArticleArchive/> }/>
-                    <Route path=":author" view=|| view! { <AuthorAnthology/> }/>
-                </Route>
-            </Routes>
+                <Routes>
+                    <Route path="" view=Layout>
+                        <Route path="" view=|| view! { <ReadingList/> }/>
+
+
+                        <Route path="faq" view=|| view! { <Faq/> }/>
+
+                        <Route path="archive" view=|| view! { <ArticleArchive/> }/>
+
+                        <Route path=":author" view=|| view! { <AuthorAnthology/> }/>
+                    </Route>
+                </Routes>
+            </Router>
         </Root>
     }
 }
@@ -155,8 +159,9 @@ pub fn BinderAlert(
             }
         >
 
-            <Alert variant=variant title=move || { title }.into_view()>
-                {text}
+            <Alert variant=variant.get()>
+                <AlertTitle slot>{ title }</AlertTitle>
+                <AlertContent slot>{text}</AlertContent>
             </Alert>
         </div>
     }
@@ -260,11 +265,11 @@ pub fn LayoutAppBar() -> impl IntoView {
                     <Icon
                         id="library-trigger"
                         class="library-icon"
-                        icon=BsIcon::BsList
+                        icon=icondata::BsList
                         on:click=move |_| ctx.toggle_library_drawer()
                     />
 
-                    <H1 style="margin: 0;">"Binder"</H1>
+                    <H1>"Binder"</H1>
                 </div>
 
                 <div class="search">
@@ -274,7 +279,7 @@ pub fn LayoutAppBar() -> impl IntoView {
                         placeholder="Add a new article..."
                         style="padding: 10px; width: 100%;"
                     />
-                    <Button on_click=move |ev| {
+                    <Button on_press=move |ev| {
                         let article_url_string = article_url.get().to_string().clone();
                         submit_article_handler(ctx, article_url_string);
                         set_article_url.set("".to_string());
@@ -411,7 +416,7 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
             </Stack>
         </Collapsibles>
         <div style="position: sticky; bottom: 10px; margin: 10px; display: flex; flex-direction: row; justify-content: flex-end;">
-            <Button on_click=update_article_view style="max-width: 20%; justify-content: flex-center;">{ move || button_text.get() }</Button>
+            <Button on_press=update_article_view style="max-width: 20%; justify-content: flex-center;">{ move || button_text.get() }</Button>
         </div>
         // </div>
     }
@@ -500,7 +505,7 @@ pub fn LibraryDrawer() -> impl IntoView {
                 <Icon
                     id="drawer-library-trigger"
                     class="library-icon"
-                    icon=BsIcon::BsList
+                    icon=icondata::BsList
                     on:click=move |_| ctx.toggle_library_drawer()
                 />
             </AppBar>
@@ -592,21 +597,20 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
     view! {
         <Collapsible>
 
-            <CollapsibleHeader slot>
-                <Stack id="article-title-header" spacing=Size::Em(0.0)>
-                    <H3>{title}</H3>
-                    <div>
-                        <a href=author.clone()>{author}</a>
-                    </div>
-                    <div>Read by: {next_read_date.to_rfc2822()}</div>
-                </Stack>
-            </CollapsibleHeader>
+                <CollapsibleHeader slot>
+                    <Stack id="article-title-header" spacing=Size::Em(0.0)>
+                        <H3>{title}</H3>
+                        <div>
+                            <a href=author.clone()>{author}</a>
+                        </div>
+                        <div>Next review: {next_read_date.to_rfc2822()}</div>
+                    </Stack>
+                </CollapsibleHeader>
 
             <CollapsibleBody slot>
                 <div style="display: flex; align-items: flex-start; flex-direction: column;">
                     <a href=source_url.clone() rel="external">
-                        Source:
-                        {source_url}
+                        Source
                     </a>
 
                     {
@@ -614,10 +618,11 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
                             None => "Loading...".to_string(),
                             Some(d) => d,
                         };
-                        view! { <div style="font-size: 18px; line-height: 1.75; font-family: Fira Code, Open Sans, sans-serif;" inner_html=html_text></div> }
+                        view! { <div inner_html=html_text></div> }
                     }
 
-                    <Button on_click=move |_| {
+
+                    <Button on_press=move |_| {
                         spawn_local(
                             requeue_article(
                                 Ulid::from_string(&ulid).expect("Invalid ULID"),
@@ -701,32 +706,24 @@ pub fn LibraryDrawerContent() -> impl IntoView {
 
     view! {
         <Box id="library-drawer-content">
-            <H3>Next Up</H3>
-
-            <Collapsible>
-                <CollapsibleHeader slot>
-                    <H3>Navigation</H3>
-                </CollapsibleHeader>
-                <CollapsibleBody class="my-body" slot>
-                    <Stack spacing=Size::Em(0.5)>
-                        <Skeleton>
-                            <A href="">
-                                <H3>Home</H3>
-                            </A>
-                        </Skeleton>
-                        <Skeleton>
-                            <A href="archive">
-                                <H2>Archive</H2>
-                            </A>
-                        </Skeleton>
-                        <Skeleton>
-                            <A href="faq">
-                                <H3>FAQ</H3>
-                            </A>
-                        </Skeleton>
-                    </Stack>
-                </CollapsibleBody>
-            </Collapsible>
+            <H2>Navigation</H2>
+            <Stack spacing=Size::Em(0.5)>
+                <Skeleton>
+                    <A href="">
+                        <H3>Home</H3>
+                    </A>
+                </Skeleton>
+                <Skeleton>
+                    <A href="archive">
+                        <H2>Archive</H2>
+                    </A>
+                </Skeleton>
+                <Skeleton>
+                    <A href="faq">
+                        <H3>FAQ</H3>
+                    </A>
+                </Skeleton>
+            </Stack>
 
         </Box>
     }

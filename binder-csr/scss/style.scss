@@ -2,7 +2,7 @@
 
 
 [data-theme="dark"] {
-    --font-family: "Titilliue Web", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+    --font-family: "Titillium Web", Arial, sans-serif;
     --text-color: #cccccc;
     
     --foreground-color: #f8f8f2;
@@ -51,6 +51,7 @@
 
     --drawer-background-color: none;
     --drawer-box-shadow: var(--dark-black);
+
 }
 
 /* For mobile phones: */
@@ -96,11 +97,10 @@ a:visited {
     flex-direction: column;
 
     // top: 4.5em;
-    width: 80%;
-    left: 0;
-    right: 0;
-    margin-left: auto;
-    margin-right: auto;
+    padding-left: 10%;
+    padding-right: 10%;
+
+    height: 100%;
     overflow-y: scroll;
     overflow-x: hidden;
     overflow-wrap: break-word;
@@ -131,26 +131,38 @@ a:visited {
 }
 
 
+:root{
+    --my-app-bar-height: 7em;
+}
 #library-drawer #library-drawer-app-bar {
     position: absolute;
-    height: auto;
+    height: var(--my-app-bar-height);
     width: 100%;
-    margin: 0;
+    margin: 1em;
 }
 
 #library-drawer #library-drawer-content {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+
     overflow-y: scroll;
     height: 100%;
+    padding: 25px;
+    width: 100%;
 }
 
 #app-bar {
     display: flex;
+    flex-direction: row;
+    justify-content: space-between;
     position: relative;
-    height: auto;
+    height: var(--my-app-bar-height);
     width: 100%;
     padding: 1em;
     overflow: unset;
+    color: var(--text-color)
 }
     
 
@@ -165,7 +177,10 @@ a:visited {
 .binder-left {
     display: flex;
     flex-direction: row;
+    width: auto;
+
     align-items: center;
+    justify-content: space-between;
 }
 
 .search {
@@ -185,7 +200,6 @@ a:visited {
         flex: 100%;
         width: 100%;
         max-width: unset;
-
     }
 
 }
@@ -201,9 +215,10 @@ a:visited {
 }
 
 .library-icon {
-    top: 50%;
     font-size: 2em;
     align-content: flex-start;
+    margin: 1em;
+    margin-left: 0.1em;
 }
 
 .article-body {
@@ -224,11 +239,6 @@ img {
     max-width: 100%;
     height: auto;
 }
-#library-drawer #library-drawer-content {
-    position: relative;
-    overflow-y: scroll;
-}
-
 
 #alert {
     position: fixed;
