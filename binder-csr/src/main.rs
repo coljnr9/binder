@@ -41,7 +41,7 @@ impl AppLayoutContext {
 #[component]
 pub fn App() -> impl IntoView {
     view! {
-        <Root default_theme=LeptonicTheme::default()>
+        <Root default_theme=LeptonicTheme::Dark>
             <Router trailing_slash=TrailingSlash::Redirect>
                 <nav></nav>
                 <main></main>
