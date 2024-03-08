@@ -42,19 +42,20 @@ impl AppLayoutContext {
 pub fn App() -> impl IntoView {
     view! {
         <Root default_theme=LeptonicTheme::default()>
-            <Router>
+            <Router trailing_slash=TrailingSlash::Redirect>
                 <nav></nav>
                 <main></main>
 
                 <Routes>
-                    <Route path="" view=Layout>
-                        <Route path="" view=|| view! { <ReadingList/> }/>
+                    <Route path="/" view=Layout>
+                        <Route path="/" view=|| view! { <ReadingList/> }/>
 
-                        <Route path="/faq" view=|| view! { <Faq/> }/>
+                        <Route path="/faq/" view=|| view! { <Faq/> }/>
 
-                        <Route path="/archive" view=|| view! { <ArticleArchive/> }/>
+                        <Route path="/archive/" view=|| view! { <ArticleArchive/> }>
+                        </Route>
 
-                        <Route path="/authors" view=|| view! { <Outlet/> }>
+                        <Route path="/authors/" view=|| view! { <Outlet/> }>
                             <Route path=":author" view=|| view! { <AuthorAnthology/> }/>
                             <Route path="" view=|| view! { <H1>List of Authors</H1>}/>
                         </Route>
@@ -427,6 +428,8 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
 
 #[component]
 pub fn ArticleArchive() -> impl IntoView {
+    let location = use_location();
+    let hash = location.hash.get();
     view! {
         <Box id="archive">
             <Await
@@ -436,7 +439,7 @@ pub fn ArticleArchive() -> impl IntoView {
             <H1>Article Archive</H1>
             {
                 let articles = articles.clone();
-                view! {
+                let v = view! {
                     <Stack spacing=Size::Em(0.5) style="min-width: 50%">
                         {
                             articles.into_iter()
@@ -444,7 +447,9 @@ pub fn ArticleArchive() -> impl IntoView {
                             .collect_view()
                         }
                     </Stack>
-                }
+
+                };
+                v
 
             }
 
@@ -730,7 +735,7 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         None => "Unknown".to_owned(),
     };
     let author_url = format!("/authors/{}", author.clone());
-    let article_anchor = format!("/archive#{}", ulid.clone());
+    let article_anchor = format!("/archive/#{}", ulid.clone());
     let element_id = ulid.clone();
     let ulid1 = ulid.clone();
     let ulid2 = ulid.clone();
@@ -856,18 +861,16 @@ async fn save_article(article_url: Url) {
 
 #[component]
 pub fn LibraryDrawerContent() -> impl IntoView {
-    let ctx = use_context::<AppLayoutContext>().unwrap();
-
     view! {
         <Box id="library-drawer-content">
             <H2>Navigation</H2>
-            <LinkButton href="">
+            <LinkButton href="/">
                 <H3>Home</H3>
             </LinkButton>
-            <LinkButton href="archive">
+            <LinkButton href="/archive/">
                 <H3>Archive</H3>
             </LinkButton>
-            <LinkButton href="faq">
+            <LinkButton href="/faq/">
                 <H3>FAQ</H3>
             </LinkButton>
 
