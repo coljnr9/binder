@@ -50,12 +50,14 @@ pub fn App() -> impl IntoView {
                     <Route path="" view=Layout>
                         <Route path="" view=|| view! { <ReadingList/> }/>
 
+                        <Route path="/faq" view=|| view! { <Faq/> }/>
 
-                        <Route path="faq" view=|| view! { <Faq/> }/>
+                        <Route path="/archive" view=|| view! { <ArticleArchive/> }/>
 
-                        <Route path="archive" view=|| view! { <ArticleArchive/> }/>
-
-                        <Route path=":author" view=|| view! { <AuthorAnthology/> }/>
+                        <Route path="/authors" view=|| view! { <Outlet/> }>
+                            <Route path=":author" view=|| view! { <AuthorAnthology/> }/>
+                            <Route path="" view=|| view! { <H1>List of Authors</H1>}/>
+                        </Route>
                     </Route>
                 </Routes>
             </Router>
@@ -160,7 +162,7 @@ pub fn BinderAlert(
         >
 
             <Alert variant=variant.get()>
-                <AlertTitle slot>{ title }</AlertTitle>
+                <AlertTitle slot>{title}</AlertTitle>
                 <AlertContent slot>{text}</AlertContent>
             </Alert>
         </div>
@@ -400,35 +402,62 @@ pub fn LargeReadingListDisplay(mut articles: Vec<ArticleRecord>) -> impl IntoVie
     };
 
     view! {
-        <H2>Next Up</H2>
-        <Collapsibles default_on_open=OnOpen::CloseOthers>
-            <Stack spacing=Size::Em(0.5) style="min-width: 50%">
-                <For
-                    each=move || visible_articles.get()
-                    key = |a| a.0.clone()
+    <H2>Next Up</H2>
+    <Collapsibles default_on_open=OnOpen::CloseOthers>
+        <Stack spacing=Size::Em(0.5) style="min-width: 50%">
+            <For
+                each=move || visible_articles.get()
+                key=|a| a.0.clone()
                     children=move |(_, article)| {
-                        view! {
-                            <ArticleDisplay article=article.clone()/>
-                        }
+                        view! { <ArticleDisplay article=article.clone()/> }
                     }
                 />
 
             </Stack>
         </Collapsibles>
         <div style="position: sticky; bottom: 10px; margin: 10px; display: flex; flex-direction: row; justify-content: flex-end;">
-            <Button on_press=update_article_view style="max-width: 20%; justify-content: flex-center;">{ move || button_text.get() }</Button>
+            <Button
+                on_press=update_article_view id="preview-toggle-button"
+            >
+                {move || button_text.get()}
+            </Button>
         </div>
-        // </div>
     }
 }
 
 #[component]
 pub fn ArticleArchive() -> impl IntoView {
+    view! {
+        <Box id="archive">
+            <Await
+                future=||get_articles_by_next_read_date(None, None)
+                let:articles
+            >
+            <H1>Article Archive</H1>
+            {
+                let articles = articles.clone();
+                view! {
+                    <Stack spacing=Size::Em(0.5) style="min-width: 50%">
+                        {
+                            articles.into_iter()
+                            .map(|a| view! { <ArticleDisplayImmutable article=a.clone()/> })
+                            .collect_view()
+                        }
+                    </Stack>
+                }
+
+            }
+
+            </Await>
+        </Box>
+    }
+}
+#[component]
+pub fn ArticleArchiveOld() -> impl IntoView {
     let articles = create_resource(
         move || (),
         move |_| async move { get_articles_by_next_read_date(None, None).await },
     );
-
     view! {
         <Box id="queue">
             {move || match articles.get() {
@@ -436,16 +465,12 @@ pub fn ArticleArchive() -> impl IntoView {
                     view! {
                         <Stack spacing=Size::Em(0.5)>
                             <H1>Article Archive</H1>
-                            <Skeleton height=Size::Em(5.0)>Loading...</Skeleton>
-                            <Skeleton height=Size::Em(5.0)/>
-                            <Skeleton height=Size::Em(5.0)/>
-                            <Skeleton height=Size::Em(5.0)/>
-                            <Skeleton height=Size::Em(5.0)/>
+                            <Skeleton height=Size::Em(15.0)>Loading articles...</Skeleton>
                         </Stack>
                     }
                 }
                 Some(v) => {
-                    view! {
+                    let v = view! {
                         <Stack spacing=Size::Em(0.5) style="min-width: 50%">
                             <H1>Article Archive</H1>
                             {v
@@ -454,7 +479,8 @@ pub fn ArticleArchive() -> impl IntoView {
                                 .collect_view()}
 
                         </Stack>
-                    }
+                    };
+                    v
                 }
             }}
 
@@ -534,7 +560,117 @@ pub struct Article {
 
 #[component]
 pub fn AuthorAnthology() -> impl IntoView {
-    view! { <H1>Works by Author</H1> }
+    let params = use_params_map();
+    let author_name = move || {
+        params.with(|params| {
+            params
+                .get("author")
+                .cloned()
+                .unwrap_or("Invalid author param".to_string())
+        })
+    };
+    view! { <Box id="author-anthology">
+
+        <H1>Works by {author_name}</H1>
+    </Box>
+    }
+}
+
+#[component]
+pub fn ArticleDisplayImmutable(article: ArticleRecord) -> impl IntoView {
+    let ArticleRecord {
+        ulid,
+        title,
+        author,
+        source_url,
+        archive_url,
+        ingest_date,
+        summary,
+        s3_archive_arn,
+        s3_mp3_arn,
+        status,
+        next_read_date,
+    } = article;
+
+    let article_content = create_resource(
+        move || s3_archive_arn.clone(),
+        |s3_archive_arn| async move {
+            match s3_archive_arn {
+                Some(arn) => {
+                    let arn = arn.split("/").last().unwrap();
+                    if arn.len() <= 3 {
+                        return "No archive".to_string();
+                    }
+                    console_log(&format!("Fetching article fulltext for: {:?}", arn));
+
+                    let response = match reqwasm::http::Request::get(&format!(
+                        "https://api.cole.plus/article/{}",
+                        arn
+                    ))
+                    .send()
+                    .await
+                    {
+                        Ok(response) => {
+                            console_log("Got article S3 response.");
+                            response
+                        }
+                        Err(e) => {
+                            console_log(&format!("Error retrieving article data: {e}"));
+                            panic!()
+                        }
+                    };
+                    return response.text().await.expect("Could not get text form body");
+                }
+                None => "No archive".to_string(),
+            }
+        },
+    );
+
+    let ingest_date_view = ingest_date.to_rfc2822();
+    let status_view = match status.clone() {
+        Some(s) => format!("{:?}", s),
+        None => "Unknown".to_owned(),
+    };
+    let author_url = format!("/authors/{}", author.clone());
+    let article_anchor = format!("#{}", ulid.clone());
+    let element_id = ulid.clone();
+
+    view! {
+            <div id={ element_id } class="article-container">
+            <Collapsible>
+                <CollapsibleHeader slot>
+                    <Stack spacing=Size::Em(0.5)>
+                    <H3>
+                        <Anchor href={ article_anchor } title="Anchor to this article"/>
+                        {title}
+                    </H3>
+
+                    <Link href=author_url>{ author }</Link>
+                    Next review: {next_read_date.to_rfc2822()}
+                </Stack>
+            </CollapsibleHeader>
+
+            <CollapsibleBody slot>
+                <div style="display: flex; align-items: flex-start; flex-direction: column;">
+                    <LinkExt href=source_url.clone() target=LinkExtTarget::Blank>
+                        Source
+                    </LinkExt>
+
+                    {
+                        let html_text = move || match article_content.get() {
+                            None => "Loading...".to_string(),
+                            Some(d) => d,
+                        };
+                        view! { <div inner_html=html_text></div> }
+                    }
+
+                </div>
+
+            </CollapsibleBody>
+
+        </Collapsible>
+        </div>
+    }
 }
 
 #[component]
@@ -593,25 +729,31 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         Some(s) => format!("{:?}", s),
         None => "Unknown".to_owned(),
     };
-
+    let author_url = format!("/authors/{}", author.clone());
+    let article_anchor = format!("/archive#{}", ulid.clone());
+    let element_id = ulid.clone();
+    let ulid1 = ulid.clone();
+    let ulid2 = ulid.clone();
     view! {
-        <Collapsible>
-
+            <div id={ element_id } class="article-container">
+            <Collapsible>
                 <CollapsibleHeader slot>
-                    <Stack id="article-title-header" spacing=Size::Em(0.0)>
-                        <H3>{title}</H3>
-                        <div>
-                            <a href=author.clone()>{author}</a>
-                        </div>
-                        <div>Next review: {next_read_date.to_rfc2822()}</div>
-                    </Stack>
-                </CollapsibleHeader>
+                    <Stack spacing=Size::Em(0.5)>
+                    <H3>
+                        <Anchor href={ article_anchor } title="Anchor to this article"/>
+                        {title}
+                    </H3>
+
+                    <Link href=author_url>{ author }</Link>
+                    Next review: {next_read_date.to_rfc2822()}
+                </Stack>
+            </CollapsibleHeader>
 
             <CollapsibleBody slot>
                 <div style="display: flex; align-items: flex-start; flex-direction: column;">
-                    <a href=source_url.clone() rel="external">
+                    <LinkExt href=source_url.clone() target=LinkExtTarget::Blank>
                         Source
-                    </a>
+                    </LinkExt>
 
                     {
                         let html_text = move || match article_content.get() {
@@ -621,21 +763,27 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
                         view! { <div inner_html=html_text></div> }
                     }
 
+                    <ButtonGroup>
+                        <Button on_press=move |_| {
+                            spawn_local(
+                                requeue_article(
+                                    Ulid::from_string(&ulid1).expect("Invalid ULID"),
+                                    status.clone(),
+                                ),
+                            );
+                        }>"Finished Reading"</Button>
 
-                    <Button on_press=move |_| {
-                        spawn_local(
-                            requeue_article(
-                                Ulid::from_string(&ulid).expect("Invalid ULID"),
-                                status.clone(),
-                            ),
-                        );
-                    }>"Finished Reading"</Button>
+                        <Button on_press=move |_| {
+                            spawn_local(archive_article(Ulid::from_string(&ulid2).expect("Invalid ULID")));
+                        }>Archive</Button>
+                    </ButtonGroup>
 
                 </div>
 
             </CollapsibleBody>
 
         </Collapsible>
+        </div>
     }
 }
 
@@ -653,6 +801,12 @@ async fn requeue_article(article_ulid: Ulid, current_status: Option<ArticleStatu
 
     update_article_next_read_date(article_ulid, next_read_date).await;
     update_article_status(article_ulid, next_status).await;
+}
+
+async fn archive_article(article_ulid: Ulid) {
+    console_log("Archiving article");
+
+    update_article_status(article_ulid, ArticleStatus::Archive).await;
 }
 
 async fn update_article_next_read_date(article_ulid: Ulid, next_read_date: DateTime<Local>) {
@@ -707,23 +861,15 @@ pub fn LibraryDrawerContent() -> impl IntoView {
     view! {
         <Box id="library-drawer-content">
             <H2>Navigation</H2>
-            <Stack spacing=Size::Em(0.5)>
-                <Skeleton>
-                    <A href="">
-                        <H3>Home</H3>
-                    </A>
-                </Skeleton>
-                <Skeleton>
-                    <A href="archive">
-                        <H2>Archive</H2>
-                    </A>
-                </Skeleton>
-                <Skeleton>
-                    <A href="faq">
-                        <H3>FAQ</H3>
-                    </A>
-                </Skeleton>
-            </Stack>
+            <LinkButton href="">
+                <H3>Home</H3>
+            </LinkButton>
+            <LinkButton href="archive">
+                <H3>Archive</H3>
+            </LinkButton>
+            <LinkButton href="faq">
+                <H3>FAQ</H3>
+            </LinkButton>
 
         </Box>
     }

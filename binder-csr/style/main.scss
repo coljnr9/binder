@@ -1,5 +1,17 @@
 @import "./leptonic/leptonic-themes";
 
+* {
+    --font-family: "Titillium Web", Arial, sans-serif;
+}
+
+.leptonic-btn {
+    padding: 10px;
+}
+
+leptonic-stack {
+    align-items: flex-start;
+}
+
 [data-theme="dark"] {
     --font-family: "Titillium Web", Arial, sans-serif;
     --text-color: #cccccc;
@@ -46,7 +58,6 @@
     --collapsible-header-background-color: var(--dark-black);
     --collapsible-body-background-color: var(--background-color);
 
-    
 
     --drawer-background-color: none;
     --drawer-box-shadow: var(--dark-black);
@@ -59,11 +70,12 @@
 }
 
 html {
+    font-family: var(--font-family);
+    font-size: 20px;
     height: 100%;
 }
 
 body {
-    
     margin: 0;
     height: 100%;
     display: flex;
@@ -84,18 +96,48 @@ a:visited {
     justify-content: center;
 }
 
+.article-container {
+    width: 100%;
+}
+
 #article-title-header {
     align-items: unset;
     min-width: 50%;
 }
 
+#author-anthology {
+    position: relative;
+    display: flex;
+    
+    padding-left: 10%;
+    padding-right: 10%;
+    height: 100%;
+
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
 
 #queue {
     position: relative;
     display: flex;
     flex-direction: column;
 
-    // top: 4.5em;
+    padding-left: 10%;
+    padding-right: 10%;
+
+    height: 100%;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
+#archive {
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+
     padding-left: 10%;
     padding-right: 10%;
 
@@ -108,7 +150,7 @@ a:visited {
 
 
 #library-drawer {
-    position: fixed;
+    position: absolute;
     right: 0;
     bottom: 0;
     left: 0;
@@ -119,13 +161,50 @@ a:visited {
     min-width: 480px;
 }
 
+#preview-toggle-button {
+    max-width: 20%;
+    justify-content: flex-center;
+}
+
 @media only screen and (max-width: 479px) {
+    * {
+        --my-app-bar-height: 3em;
+    }
+
+    #app-bar {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        position: sticky;
+        height: var(--my-app-bar-height);
+        width: 100%;
+        padding: 1em;
+        color: var(--text-color);
+
+    }
+    
     #queue {
         width: 100%;
+        padding-left: 10px;
+        padding-right: 10px;
     }
 
     #library-drawer {
         width: 100%;
+        min-width: unset;
+    }
+    
+    .search {
+        flex: 100%;
+        width: 100%;
+    }
+
+    leptonic-theme-toggle {
+        display: none;
+    }
+
+    #preview-toggle-button {
+        max-width: 100%;
     }
 }
 
@@ -133,6 +212,7 @@ a:visited {
 :root{
     --my-app-bar-height: 7em;
 }
+
 #library-drawer #library-drawer-app-bar {
     position: absolute;
     height: var(--my-app-bar-height);
@@ -145,11 +225,16 @@ a:visited {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    align-items: stretch;
 
     overflow-y: scroll;
     height: 100%;
-    padding: 25px;
     width: 100%;
+    padding: 25px;
+}
+
+#library-drawer-content .leptonic-btn {
+    margin: 10px;
 }
 
 #app-bar {
@@ -190,18 +275,6 @@ a:visited {
     align-items: center;
 }
 
-@media only screen and (max-width: 479px) {
-    .flex-layout{
-        display: flex;
-        flex-direction: column;
-    }
-    .search {
-        flex: 100%;
-        width: 100%;
-        max-width: unset;
-    }
-
-}
 
 #library-drawer #library-drawer-app-bar {
     position: sticky;

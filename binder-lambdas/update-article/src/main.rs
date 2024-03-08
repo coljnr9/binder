@@ -73,18 +73,10 @@ async fn update_status(
     let article_item = article_item?.pop().expect("Returned article not found");
     let pk = article_item.get("PK").expect("Unable to extract PK");
     let sk = article_item.get("SK").expect("Unable to extract SK");
-    let status_str = article_item
-        .get("Status")
-        .expect("Unable to extract Status")
-        .as_s()
-        .expect("Unable to turn status to str");
-    let status: ArticleStatus =
-        serde_json::from_str(&status_str).expect("Unable to DE serialize status");
-    let next_status = status.next_status();
-    let status_value = AttributeValue::S(serde_json::to_string(&next_status)?);
 
     let next_read_date = Local::now() + new_status.repeat_duration();
     let new_sk = AttributeValue::S(next_read_date.to_rfc3339_opts(SecondsFormat::Millis, true));
+    let new_status_value = AttributeValue::S(serde_json::to_string(&new_status)?);
 
     // Then, use the article sort key to perform an update
     info!("pk: {:#?}", &pk);
@@ -123,7 +115,7 @@ async fn update_status(
                 .expect("Unable to retrieve S3Arn")
                 .clone(),
         )
-        .item("Status", status_value)
+        .item("Status", new_status_value)
         .item(
             "Title",
             article_item
