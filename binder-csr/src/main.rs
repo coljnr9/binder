@@ -236,7 +236,10 @@ fn submit_article_handler(ctx: AppLayoutContext, article_url_string: String) {
         },
         UrlValidationResult::Ok(url) => {
             let save_article_action = create_action(|url: &Url| save_article(url.clone()));
+            console_log("Starting action");
             save_article_action.dispatch(url);
+            console_log("Action complete");
+
             AlertDisplay {
                 shown: true,
                 variant: AlertVariant::Success,
@@ -884,6 +887,7 @@ async fn save_article(article_url: Url) {
         .send()
         .await
         .unwrap();
+    console_log(&format!("Done saving {}", article_url));
 }
 
 #[component]
