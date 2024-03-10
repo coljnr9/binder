@@ -17,7 +17,8 @@ leptonic-stack {
     --text-color: #cccccc;
     
     --foreground-color: #f8f8f2;
-    --background-color: #282a36;
+    --background-color: #363847;
+    // --background-color: #282a36;
 
     --hot-pink: #ff33cc;
 
@@ -48,7 +49,8 @@ leptonic-stack {
     --url-color: #ffb86c;
     --visited-url-color: #994f00;
 
-    --brand-color: #8b39fd;
+    --brand-color: #5405af;
+    // --brand-color: #8b39fd;
     
     --std-text-bright: var(--text-color);
     --box-background-color: var(--background-color);
@@ -97,6 +99,13 @@ a:visited {
 }
 
 .article-container {
+    width: 100%;
+}
+leptonic-collapsible-header {
+    width: 100%;
+}
+
+leptonic-collapsible-body {
     width: 100%;
 }
 

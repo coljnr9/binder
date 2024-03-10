@@ -56,8 +56,8 @@ pub fn App() -> impl IntoView {
                         </Route>
 
                         <Route path="/authors/" view=|| view! { <Outlet/> }>
-                            <Route path=":author" view=|| view! { <AuthorAnthology/> }/>
-                            <Route path="" view=|| view! { <H1>List of Authors</H1>}/>
+                            <Route path="/:author/" view=|| view! { <AuthorAnthology/> }/>
+                            <Route path="*" view=|| view! { <H1>List of Authors</H1>}/>
                         </Route>
                     </Route>
                 </Routes>
@@ -449,6 +449,7 @@ pub fn ArticleArchive() -> impl IntoView {
                     </Stack>
 
                 };
+                console_log(&format!("got hash {}", &hash));
                 v
 
             }
@@ -597,39 +598,50 @@ pub fn ArticleDisplayImmutable(article: ArticleRecord) -> impl IntoView {
         next_read_date,
     } = article;
 
-    let article_content = create_resource(
-        move || s3_archive_arn.clone(),
-        |s3_archive_arn| async move {
-            match s3_archive_arn {
-                Some(arn) => {
-                    let arn = arn.split("/").last().unwrap();
-                    if arn.len() <= 3 {
-                        return "No archive".to_string();
-                    }
-                    console_log(&format!("Fetching article fulltext for: {:?}", arn));
+    let (load_article, set_load_article) = create_signal(false);
 
-                    let response = match reqwasm::http::Request::get(&format!(
-                        "https://api.cole.plus/article/{}",
-                        arn
-                    ))
+    // Maybe create a resource that loads...?
+    let fetch_content = move |should_load_article: bool| {
+        let arn_clone = s3_archive_arn.clone();
+        async move {
+            if !should_load_article {
+                console_log("No need to load right now");
+                return None;
+            }
+
+            let s3_archive_arn_ = match arn_clone.clone() {
+                Some(arn) => arn,
+                None => {
+                    console_log("No s3 arn available");
+                    return None;
+                }
+            };
+
+            let arn = s3_archive_arn_.split("/").last().unwrap();
+            if arn.len() <= 3 {
+                return Some("No archive".to_string());
+            }
+
+            console_log(&format!("Fetching article full-text for: {:?}", arn));
+
+            let response =
+                reqwasm::http::Request::get(&format!("https://api.cole.plus/article/{}", arn))
                     .send()
                     .await
-                    {
-                        Ok(response) => {
-                            console_log("Got article S3 response.");
-                            response
-                        }
-                        Err(e) => {
-                            console_log(&format!("Error retrieving article data: {e}"));
-                            panic!()
-                        }
-                    };
-                    return response.text().await.expect("Could not get text form body");
-                }
-                None => "No archive".to_string(),
-            }
-        },
-    );
+                    .expect("Expected to get a response from S3");
+
+            console_log("Fetched article content");
+
+            let response = response
+                .text()
+                .await
+                .expect("Expected to get a text response");
+
+            Some(response)
+        }
+    };
+
+    let article_content = create_resource(move || load_article.get(), fetch_content);
 
     let ingest_date_view = ingest_date.to_rfc2822();
     let status_view = match status.clone() {
@@ -644,15 +656,18 @@ pub fn ArticleDisplayImmutable(article: ArticleRecord) -> impl IntoView {
             <div id={ element_id } class="article-container">
             <Collapsible>
                 <CollapsibleHeader slot>
-                    <Stack spacing=Size::Em(0.5)>
-                    <H3>
-                        <Anchor href={ article_anchor } title="Anchor to this article"/>
-                        {title}
-                    </H3>
 
-                    <Link href=author_url>{ author }</Link>
-                    Next review: {next_read_date.to_rfc2822()}
-                </Stack>
+                    <div style="width: 100%;" on:mousedown=move |_| { console_log("Setting load_article to true"); set_load_article.set(true) }>
+                        <Stack spacing=Size::Em(0.5)>
+                        <H3>
+                            <Anchor href={ article_anchor } title="Anchor to this article"/>
+                            {title}
+                        </H3>
+
+                        <Link href=author_url>{ author }</Link>
+                        Next review: {next_read_date.to_rfc2822()}
+                    </Stack>
+                </div>
             </CollapsibleHeader>
 
             <CollapsibleBody slot>
@@ -661,14 +676,13 @@ pub fn ArticleDisplayImmutable(article: ArticleRecord) -> impl IntoView {
                         Source
                     </LinkExt>
 
+                    <Suspense fallback=move || view! {<Skeleton height=Size::Em(5.0)><H2>"Loading..."</H2></Skeleton>} >
                     {
-                        let html_text = move || match article_content.get() {
-                            None => "Loading...".to_string(),
-                            Some(d) => d,
-                        };
-                        view! { <div inner_html=html_text></div> }
+                        move || {
+                            article_content.get().map(|a| view! { <div inner_html=a></div> })
+                        }
                     }
-
+                    </Suspense>
                 </div>
 
             </CollapsibleBody>
@@ -694,40 +708,49 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
         next_read_date,
     } = article;
 
-    // Maybe create a resource that loads...?
-    let article_content = create_resource(
-        move || s3_archive_arn.clone(),
-        |s3_archive_arn| async move {
-            match s3_archive_arn {
-                Some(arn) => {
-                    let arn = arn.split("/").last().unwrap();
-                    if arn.len() <= 3 {
-                        return "No archive".to_string();
-                    }
-                    console_log(&format!("Fetching article fulltext for: {:?}", arn));
+    let (load_article, set_load_article) = create_signal(false);
 
-                    let response = match reqwasm::http::Request::get(&format!(
-                        "https://api.cole.plus/article/{}",
-                        arn
-                    ))
+    let fetch_content = move |should_load_article: bool| {
+        let arn_clone = s3_archive_arn.clone();
+        async move {
+            if !should_load_article {
+                console_log("No need to load right now");
+                return None;
+            }
+
+            let s3_archive_arn_ = match arn_clone.clone() {
+                Some(arn) => arn,
+                None => {
+                    console_log("No s3 arn available");
+                    return None;
+                }
+            };
+
+            let arn = s3_archive_arn_.split("/").last().unwrap();
+            if arn.len() <= 3 {
+                return Some("No archive".to_string());
+            }
+
+            console_log(&format!("Fetching article full-text for: {:?}", arn));
+
+            let response =
+                reqwasm::http::Request::get(&format!("https://api.cole.plus/article/{}", arn))
                     .send()
                     .await
-                    {
-                        Ok(response) => {
-                            console_log("Got article S3 response.");
-                            response
-                        }
-                        Err(e) => {
-                            console_log(&format!("Error retrieving article data: {e}"));
-                            panic!()
-                        }
-                    };
-                    return response.text().await.expect("Could not get text form body");
-                }
-                None => "No archive".to_string(),
-            }
-        },
-    );
+                    .expect("Expected to get a response from S3");
+
+            console_log("Fetched article content");
+
+            let response = response
+                .text()
+                .await
+                .expect("Expected to get a text response");
+
+            Some(response)
+        }
+    };
+
+    let article_content = create_resource(move || load_article.get(), fetch_content);
 
     let ingest_date_view = ingest_date.to_rfc2822();
     let status_view = match status.clone() {
@@ -739,34 +762,38 @@ pub fn ArticleDisplay(article: ArticleRecord) -> impl IntoView {
     let element_id = ulid.clone();
     let ulid1 = ulid.clone();
     let ulid2 = ulid.clone();
+
     view! {
             <div id={ element_id } class="article-container">
             <Collapsible>
                 <CollapsibleHeader slot>
-                    <Stack spacing=Size::Em(0.5)>
-                    <H3>
-                        <Anchor href={ article_anchor } title="Anchor to this article"/>
-                        {title}
-                    </H3>
 
-                    <Link href=author_url>{ author }</Link>
-                    Next review: {next_read_date.to_rfc2822()}
-                </Stack>
+                    <div style="width: 100%;" on:mousedown=move |_| { console_log("Setting load_article to true"); set_load_article.set(true) }>
+                        <Stack spacing=Size::Em(0.5)>
+                        <H3>
+                            <Anchor href={ article_anchor } title="Anchor to this article"/>
+                            {title}
+                        </H3>
+
+                        <Link href=author_url>{ author }</Link>
+                        Next review: {next_read_date.to_rfc2822()}
+                    </Stack>
+                </div>
             </CollapsibleHeader>
 
             <CollapsibleBody slot>
-                <div style="display: flex; align-items: flex-start; flex-direction: column;">
+                <div style="display: flex; align-items: flex-start; flex-direction: column; width: 100%;">
                     <LinkExt href=source_url.clone() target=LinkExtTarget::Blank>
                         Source
                     </LinkExt>
 
+                    <Suspense fallback=move || view! {<Skeleton height=Size::Em(5.0)><H2>"Loading..."</H2></Skeleton>} >
                     {
-                        let html_text = move || match article_content.get() {
-                            None => "Loading...".to_string(),
-                            Some(d) => d,
-                        };
-                        view! { <div inner_html=html_text></div> }
+                        move || {
+                            article_content.get().map(|a| view! { <div inner_html=a></div> })
+                        }
                     }
+                    </Suspense>
 
                     <ButtonGroup>
                         <Button on_press=move |_| {
